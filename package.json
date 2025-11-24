@@ -1,0 +1,62 @@
+{
+  "name": "vibekan",
+  "displayName": "Vibekan",
+  "description": "Vibekan VSCode extension with glass‑morphic Kanban UI",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.80.0" },
+  "main": "./out/extension.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "build": "vite build",
+    "compile": "tsc -p .",
+    "watch": "concurrently \"npm run dev\" \"npm run watch:extension\"",
+    "watch:extension": "tsc -watch -p ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CodexScriba/vibekan.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": { "url": "https://github.com/CodexScriba/vibekan/issues" },
+  "homepage": "https://github.com/CodexScriba/vibekan#readme",
+  "activationEvents": ["*"],
+  
+  "contributes": {
+    "commands": [
+      {
+        "command": "vibekan.openBoard",
+        "title": "Open Vibekan Board"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "vibekan", "title": "Vibekan", "icon": "media/icon.png" }
+      ]
+    },
+    "views": {
+      "vibekan": [
+        { "id": "vibekanView", "name": "Vibekan Board" }
+      ]
+    }
+  },
+  "dependencies": {
+    "lucide-react": "^0.554.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.6",
+    "@types/react-dom": "^19.2.3",
+    "@types/vscode": "^1.106.1",
+    "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.2.1",
+    "rimraf": "^6.1.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.4"
+  }
+}
