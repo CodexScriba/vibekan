@@ -1,0 +1,110 @@
+:root {
+  --bg-gradient-start: #050509;
+  --bg-gradient-end: #090915;
+  --glass-bg: rgba(15, 20, 40, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --accent-primary: #3BF5FF;
+  --accent-secondary: #FF3BCE;
+  --text-primary: #F5F7FF;
+  --text-secondary: rgba(245, 247, 255, 0.7);
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(to bottom, var(--bg-gradient-start), var(--bg-gradient-end));
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+}
+
+/* Fallback for environments without backdrop-filter */
+@supports not (backdrop-filter: blur(16px)) {
+  .glass-panel {
+    background: rgba(15, 20, 40, 0.95);
+  }
+}
+
+/* Button Styles */
+.vibekan-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(20, 25, 50, 0.8);
+  border: 1px solid var(--glass-border);
+  border-radius: 9999px; /* Pill shape */
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+.vibekan-button:hover {
+  background: rgba(30, 35, 60, 0.9);
+  box-shadow: 0 0 15px rgba(59, 245, 255, 0.15);
+  border-color: rgba(59, 245, 255, 0.3);
+}
+
+.vibekan-button:active {
+  transform: scale(0.98);
+}
+
+.vibekan-button.primary {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 10px rgba(59, 245, 255, 0.1);
+}
+
+.vibekan-button.dimmed {
+  opacity: 0.6;
+}
+
+.vibekan-button-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+}
+
+.vibekan-button-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.vibekan-button-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.vibekan-button-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.vibekan-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: rgba(20, 25, 50, 0.6);
+}
+
+.vibekan-status.error {
+  color: #ff9fb1;
+  border-color: rgba(255, 63, 206, 0.5);
+}

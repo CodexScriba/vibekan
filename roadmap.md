@@ -133,7 +133,7 @@ This is the first tangible UI we want, even before the full board.
 
 ### 5.1 Placement & Layout
 
-- Location: Left side of the main Kanban webview OR a dedicated “Launcher” view if the board isn’t available yet.
+- Location: A sidebar view container in the Activity Bar (a dedicated “Launcher” view), not inside the main Kanban webview.
 - Layout:
   - A vertical column anchored to the left, taking ~20–25% of the width on desktop.
   - Three stacked buttons with consistent width and spacing.

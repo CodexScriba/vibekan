@@ -39,7 +39,7 @@
     },
     "views": {
       "vibekan": [
-        { "id": "vibekanView", "name": "Vibekan Board" }
+        { "id": "vibekanView", "name": "Vibekan Board", "type": "webview" }
       ]
     }
   },
