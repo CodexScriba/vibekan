@@ -34,7 +34,7 @@
     ],
     "viewsContainers": {
       "activitybar": [
-        { "id": "vibekan", "title": "Vibekan", "icon": "media/icon.png" }
+        { "id": "vibekan", "title": "Vibekan", "icon": "media/sidebar.svg" }
       ]
     },
     "views": {
