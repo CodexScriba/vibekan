@@ -1,5 +1,9 @@
 # Vibe Kanban / Vibekan — Unified Roadmap
 
+> **🤖 AI Agent Maintenance Note:**  
+> This `README.md` is the **single source of factual truth** for the project's current state.  
+> When implementing new features or changing the architecture, you **MUST** update this file to reflect the actual codebase state (file tree, features, commands). Do not leave stale information.
+
 ## Product North Star
 
 - File‑based Kanban and context manager for solo developers orchestrating multiple AI agents (planner, coder, auditor, etc.).
@@ -13,6 +17,16 @@
 - No multi‑user collaboration, cloud syncing, or analytics.
 - No direct AI API calls; the extension prepares perfect prompts for manual pasting.
 - No fully custom workflows; stages are fixed for now.
+
+## Current Features (v0.1.0)
+
+### Sidebar View
+A dedicated **Vibekan** view container is available in the VS Code Activity Bar.
+
+**Actions:**
+1.  **Generate Vibekan** (`vibekan.generate`): Scaffolds the `.vibekan` workspace folder and default context files if they don't exist.
+2.  **Open Vibekan View** (`vibekan.openBoard`): Opens the main Kanban board webview (currently a placeholder).
+3.  **Settings** (`vibekan.openSettings`): Opens the VS Code settings filtered to `vibekan` configuration.
 
 ## Project File Tree
 
@@ -38,7 +52,8 @@
 │   └── user-personas-and-use-cases.md
 ├── docs/                       # Project documentation
 ├── media/                      # Assets like icons
-│   └── icon.png
+│   ├── icon.png
+│   └── sidebar.svg             # Sidebar activity bar icon
 ├── src/                        # Extension source code
 │   ├── components/             # React components
 │   │   └── Sidebar.tsx         # Sidebar view component

@@ -118,7 +118,7 @@ We explicitly design and validate UI before logic. Every phase below has:
 - **Human Review:** Where you (the human) must review/approve before implementation or after AI changes.
 - **Implementation Notes:** Hints for later coding phases (not to be implemented yet when we’re still in UI design).
 
-### Phase A — Entry Column with 3 Primary Buttons (First Milestone)
+### Phase A — Entry Column with 3 Primary Buttons (First Milestone) ✅ COMPLETED
 
 **Goal:** A single column UI with three primary actions:
 1. `Generate Vibekan`
@@ -133,15 +133,16 @@ This is the first tangible UI we want, even before the full board.
 
 ### 5.1 Placement & Layout
 
-- Location: A sidebar view container in the Activity Bar (a dedicated “Launcher” view), not inside the main Kanban webview.
+- Location: A sidebar view container in the Activity Bar (a dedicated "Launcher" view), not inside the main Kanban webview.
 - Layout:
-  - A vertical column anchored to the left, taking ~20–25% of the width on desktop.
+  - Vertical panel in VSCode's sidebar area, width controlled by the editor.
   - Three stacked buttons with consistent width and spacing.
-  - Enough padding around the column to reinforce the glass “panel” feel.
+  - Enough padding around the panel to reinforce the glass "panel" feel.
 
-**Column behavior (desktop first):**
-- Fixed position column that doesn’t scroll independently; the rest of the board scrolls.
-- On smaller widths (e.g., laptop/tablet), the column collapses to a compact vertical strip with icon‑only buttons; labels appear on hover or expand on click.
+**Sidebar behavior:**
+- Panel width is controlled by VSCode's native sidebar resizing.
+- Buttons remain fully visible at all sidebar widths; text may truncate naturally.
+- The main board webview (Phase B) opens in a separate editor tab when "Open Vibekan View" is clicked.
 
 ### 5.2 Glassmorphism / Liquid Glass Aesthetic
 
@@ -245,31 +246,27 @@ Each button is a large, pill‑like glass button inside the column.
   - Verify that the button correctly opens the filtered settings view.
   - Confirm the default theme feels right in both dark and light VSCode themes.
 
-### 5.4 Interaction Flows (From the Column)
+### 5.4 Interaction Flows (From the Sidebar)
 
-**Flow 1 — First‑time user:**
-1. User installs extension and runs “Open Vibekan View”.
-2. Webview opens and shows:
-   - Left column with the three buttons.
-   - Rest of the screen: subtle empty state with copy explaining Vibekan.
-3. User clicks `Generate Vibekan`.
+**Flow 1 — First-time user:**
+1. User installs extension and clicks the Vibekan icon in the Activity Bar.
+2. Sidebar panel opens with the three buttons.
+3. User clicks "Generate Vibekan".
 4. After success:
-   - Subtle toast within webview: “`.vibekan/` workspace created.”
-   - The board area prompts: “Open Vibekan View” again to load tasks, or auto‑refresh.
+   - Status message in sidebar: ".vibekan/ workspace created."
+   - "Open Vibekan View" button becomes emphasized (primary style).
 
-**Flow 2 — Returning user with existing `.vibekan/`:**
-1. User opens the view.
-2. Column is visible; `Generate Vibekan` might be secondary (less emphasis).
-3. User clicks `Open Vibekan View`.
-4. Board loads with tasks grouped by stage.
+**Flow 2 — Returning user with existing .vibekan/:**
+1. User clicks the Vibekan icon in the Activity Bar.
+2. Sidebar panel shows the three buttons; "Generate Vibekan" is de-emphasized since workspace exists.
+3. User clicks "Open Vibekan View".
+4. Main board webview opens in an editor tab with tasks grouped by stage.
 
 **Flow 3 — Configuration tweak:**
-1. From the board, user clicks `Settings`.
+1. From the sidebar, user clicks "Settings".
 2. VSCode opens the settings pane filtered to `vibekan`.
 3. User adjusts theme/behavior.
-4. Webview responds on next reload; later we can add live theme sync.
-
----
+4. Changes take effect on next board reload; later we can add live theme sync.
 
 ## 6. Later Phases (High‑Level)
 
@@ -278,9 +275,11 @@ These are summarized here for continuity; details can be fleshed out phase‑by�
 ### Phase B — Full Kanban Board UI
 
 - Glassy columns for `Chat`, `Queue`, `Plan`, `Code`, `Audit`, `Completed`.
-- Task cards showing title, phase badge, tags, and a “Copy Prompt” button.
-- Drag‑and‑drop between columns, with smooth animations.
+- Task cards showing title, phase badge, tags, and a "Copy Prompt" button.
+- Drag-and-drop between columns, with smooth animations.
 - Keyboard navigation between cards and columns.
+
+**Style Note:** Reuse the glassmorphism CSS variables and components from Phase A (see `index.css`). The board webview should inherit the same visual language as the sidebar to maintain consistency and avoid duplicate styling work.
 
 ### Phase C — Copy‑With‑Context UX
 
@@ -304,17 +303,24 @@ These are summarized here for continuity; details can be fleshed out phase‑by�
 
 ---
 
-## 7. Human Review Checklist (UI‑First)
+## 7. Human Review Checklist (UI-First)
 
-Before we move from “UI spec” to “implementation” for Phase A (three‑button column), confirm:
+### Phase A Review (COMPLETED)
 
-- [ ] Column layout, placement, and behavior on narrow widths.
-- [ ] Exact labeling and subtitles for `Generate Vibekan`, `Open Vibekan View`, `Settings`.
-- [ ] Glassmorphism and crypto‑inspired visual details feel “right” (not overdone).
-- [ ] First‑time user flow and empty state messaging.
-- [ ] How we handle existing vs missing `.vibekan/` when each button is pressed.
+The following items were reviewed and implemented:
 
-Once these are checked, we can proceed to:
-- Implement the column UI in the webview React app.
-- Wire up commands to extension logic in later phases.
+- [x] Sidebar layout and placement in the Activity Bar.
+- [x] Labeling and subtitles for "Generate Vibekan", "Open Vibekan View", "Settings".
+- [x] Glassmorphism and crypto-inspired visual styling applied.
+- [x] First-time user flow with state-aware button emphasis.
+- [x] Handling of existing vs missing .vibekan/ (button states adapt).
+
+### Next Steps (Phase B)
+
+Before implementing the full Kanban board UI:
+
+- [ ] Finalize board column layout (6 stages) and card design.
+- [ ] Define drag-and-drop behavior and animations.
+- [ ] Ensure shared glassmorphism styles between sidebar and board (avoid duplication).
+- [ ] Confirm keyboard navigation requirements.
 
