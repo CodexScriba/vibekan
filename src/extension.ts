@@ -545,10 +545,13 @@ async function validateVibekanPath(filePath: string): Promise<{ valid: boolean; 
 const fileMtimes = new Map<string, number>();
 
 async function handleReadTaskFile(webview: vscode.Webview, filePath: string) {
+  console.log('[Vibekan] handleReadTaskFile called with:', filePath);
   try {
     // Validate path is within .vibekan
     const validation = await validateVibekanPath(filePath);
+    console.log('[Vibekan] validateVibekanPath result:', validation);
     if (!validation.valid) {
+      console.log('[Vibekan] Path validation failed:', validation.error);
       webview.postMessage({
         command: 'taskFileError',
         filePath,
@@ -559,6 +562,7 @@ async function handleReadTaskFile(webview: vscode.Webview, filePath: string) {
 
     const uri = vscode.Uri.file(filePath);
     const content = await readTextIfExists(uri);
+    console.log('[Vibekan] File content length:', content?.length ?? 'null');
     if (content !== null) {
       // Store mtime for conflict detection
       try {
@@ -568,12 +572,14 @@ async function handleReadTaskFile(webview: vscode.Webview, filePath: string) {
         // Ignore stat errors
       }
 
+      console.log('[Vibekan] Sending taskFileContent message');
       webview.postMessage({
         command: 'taskFileContent',
         filePath,
         content,
       });
     } else {
+      console.log('[Vibekan] File not found');
       webview.postMessage({
         command: 'taskFileError',
         filePath,
@@ -581,6 +587,7 @@ async function handleReadTaskFile(webview: vscode.Webview, filePath: string) {
       });
     }
   } catch (error) {
+    console.error('[Vibekan] handleReadTaskFile error:', error);
     const message = error instanceof Error ? error.message : 'Failed to read file';
     webview.postMessage({
       command: 'taskFileError',

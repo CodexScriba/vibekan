@@ -33,22 +33,34 @@ export const EditorModal: React.FC<EditorModalProps> = ({
 
   // Load file content when modal opens
   useEffect(() => {
-    if (open && filePath && vscode) {
+    if (!open) return;
+    if (!vscode) {
+      setError('VS Code API unavailable. Open this view inside VS Code.');
+      setLoading(false);
+      return;
+    }
+    if (filePath) {
       setLoading(true);
       setError(null);
       setConflictPending(null);
       vscode.postMessage({ command: 'readTaskFile', filePath });
     }
-  }, [open, filePath]);
+  }, [open, filePath, vscode]);
+
+  // Failsafe timeout so the modal doesn't get stuck on "Loading..."
+  useEffect(() => {
+    if (!open || !loading) return;
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setError('Timed out while loading the file. Please try again.');
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [open, loading]);
 
   // Listen for file content response - stable dependency array
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
-
-      // Check if this message is for us (either current filePath or original filePath for moves)
-      const isForUs = message.filePath === filePath || message.originalFilePath === filePath;
-      if (!isForUs) return;
 
       switch (message.command) {
         case 'taskFileContent':
@@ -235,4 +247,3 @@ export const EditorModal: React.FC<EditorModalProps> = ({
     </div>
   );
 };
-
