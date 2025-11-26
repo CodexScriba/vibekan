@@ -18,15 +18,34 @@
 - No direct AI API calls; the extension prepares perfect prompts for manual pasting.
 - No fully custom workflows; stages are fixed for now.
 
-## Current Features (v0.1.0)
+## Current Features (v0.2.0)
 
 ### Sidebar View
 A dedicated **Vibekan** view container is available in the VS Code Activity Bar.
 
 **Actions:**
 1.  **Generate Vibekan** (`vibekan.generate`): Scaffolds the `.vibekan` workspace folder and default context files if they don't exist.
-2.  **Open Vibekan View** (`vibekan.openBoard`): Opens the main Kanban board webview (currently a placeholder).
+2.  **Open Vibekan View** (`vibekan.openBoard`): Opens the main Kanban board webview with full drag-and-drop functionality.
 3.  **Settings** (`vibekan.openSettings`): Opens the VS Code settings filtered to `vibekan` configuration.
+
+### Kanban Board (Phase B ✅ Completed)
+A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
+
+**Features:**
+- **6 Stage Columns**: Chat, Queue, Plan, Code, Audit, Completed
+- **Drag-and-Drop**: Move tasks between stages with visual feedback
+  - Cross-column moves with intelligent order assignment
+  - Within-column reordering with instant persistence
+  - Drag-cancel restores original position
+- **Task Cards**: Display title, phase badge, tags, and agent
+- **Keyboard Navigation**:
+  - Arrow keys to navigate between cards and columns
+  - `C` key to copy task prompt with full context
+- **Order Persistence**: Task positions saved to disk with `order` field in frontmatter
+- **Smart Sorting**: Tasks sorted by order (undefined orders sort to end)
+- **Timestamp Preservation**: File timestamps maintained when creating frontmatter
+
+**Note**: Task creation UI coming in Phase C. Currently tasks must be created manually as `.md` files in `.vibekan/tasks/<stage>/` folders.
 
 ## Project File Tree
 
@@ -56,13 +75,19 @@ A dedicated **Vibekan** view container is available in the VS Code Activity Bar.
 │   └── sidebar.svg             # Sidebar activity bar icon
 ├── src/                        # Extension source code
 │   ├── components/             # React components
+│   │   ├── Board.tsx           # Main Kanban board component
+│   │   ├── Column.tsx          # Stage column component
+│   │   ├── TaskCard.tsx        # Draggable task card component
 │   │   └── Sidebar.tsx         # Sidebar view component
+│   ├── hooks/                  # React hooks
+│   │   └── useTasks.ts         # Task loading and state management hook
 │   ├── types/                  # TypeScript type definitions
-│   │   └── global.d.ts         # Global window types
+│   │   ├── global.d.ts         # Global window types
+│   │   └── task.ts             # Task interface and stage constants
 │   ├── utils/                  # Utility functions
 │   │   └── vscode.ts           # VS Code API singleton
 │   ├── App.tsx                 # Main React application component
-│   ├── extension.ts            # VSCode extension entry point
+│   ├── extension.ts            # VSCode extension entry point (task file ops, message handlers)
 │   ├── index.css               # Global styles and Glassmorphism tokens
 │   ├── index.html              # Webview entry HTML
 │   └── main.tsx                # React entry point

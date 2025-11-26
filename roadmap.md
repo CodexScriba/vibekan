@@ -270,42 +270,52 @@ Each button is a large, pill‑like glass button inside the column.
 
 ## 6. Later Phases (High‑Level)
 
-These are summarized here for continuity; details can be fleshed out phase‑by‑phase after Phase A is approved.
+These are summarized here for continuity; details can be fleshed out phase‑by‑phase after Phase B is completed.
 
-### Phase B — Full Kanban Board UI
+### Phase B — Full Kanban Board UI ✅ COMPLETED
 
+**Completed features:**
 - Glassy columns for `Chat`, `Queue`, `Plan`, `Code`, `Audit`, `Completed`.
 - Task cards showing title, phase badge, tags, and a "Copy Prompt" button.
-- Drag-and-drop between columns, with smooth animations.
-- Keyboard navigation between cards and columns.
+- Drag-and-drop between columns with smooth animations and order persistence.
+- Keyboard navigation between cards and columns (arrow keys, 'C' to copy).
+- Stricter YAML frontmatter parsing with timestamp preservation.
+- Task ordering persisted to disk with automatic sorting on load.
+- Cross-column moves with intelligent order assignment (append or insert at drop position).
 
-**Style Note:** Reuse the glassmorphism CSS variables and components from Phase A (see `index.css`). The board webview should inherit the same visual language as the sidebar to maintain consistency and avoid duplicate styling work.
+**Style Note:** Successfully reused glassmorphism CSS variables and components from Phase A. The board webview inherits the same visual language as the sidebar for consistency.
 
-### Phase C — Copy‑With‑Context UX
-
-- Per‑card “Copy Prompt” button with modes:
-  - Full context (task + architecture + phase + stage + agent).
-  - Task‑only.
-  - Context‑only.
-- Non‑blocking toast: “Copied N characters to clipboard.”
-
-### Phase D — Tree View & Quick Add
+### Phase C — Tree View & Quick Add Task (NEXT)
 
 - Explorer tree view: Phase → Stage → Task (or the inverse).
 - Quick Add Task form from the command palette and from the board.
+- "+" button in each column header for rapid task creation.
+- Task creation form with fields: title, phase, agent, tags.
+
+**Priority rationale:** Users need to create tasks before they can benefit from copy-with-context. Task creation is the foundational workflow.
+
+### Phase D — Copy‑With‑Context UX
+
+- Per‑card "Copy Prompt" button with modes:
+  - Full context (task + architecture + phase + stage + agent).
+  - Task‑only.
+  - Context‑only.
+- Non‑blocking toast: "Copied N characters to clipboard."
+- Command palette shortcuts for copy modes.
 
 ### Phase E — Polish & Themes
 
 - Refine glassmorphism tokens, transitions, and accessibility:
   - Ensure contrast in dark mode.
-  - Provide a “reduced motion” option.
+  - Provide a "reduced motion" option.
 - Iterate on crypto‑inspired accents without crossing into noisy or gimmicky.
+- Performance optimization for 100+ tasks.
 
 ---
 
 ## 7. Human Review Checklist (UI-First)
 
-### Phase A Review (COMPLETED)
+### Phase A Review ✅ COMPLETED
 
 The following items were reviewed and implemented:
 
@@ -315,12 +325,23 @@ The following items were reviewed and implemented:
 - [x] First-time user flow with state-aware button emphasis.
 - [x] Handling of existing vs missing .vibekan/ (button states adapt).
 
-### Next Steps (Phase B)
+### Phase B Review ✅ COMPLETED
 
-Before implementing the full Kanban board UI:
+The following items were reviewed and implemented:
 
-- [ ] Finalize board column layout (6 stages) and card design.
-- [ ] Define drag-and-drop behavior and animations.
-- [ ] Ensure shared glassmorphism styles between sidebar and board (avoid duplication).
-- [ ] Confirm keyboard navigation requirements.
+- [x] Board column layout (6 stages) and card design finalized.
+- [x] Drag-and-drop behavior with smooth animations implemented.
+- [x] Shared glassmorphism styles between sidebar and board (no duplication).
+- [x] Keyboard navigation implemented (arrow keys, 'C' to copy).
+- [x] Order persistence with sorting fixes (undefined orders sort to end).
+- [x] Cross-column drop positioning with in-memory list updates.
+- [x] Drag-cancel restores original stage in UI.
 
+### Next Steps (Phase C)
+
+Before implementing tree view & quick add:
+
+- [ ] Design task creation form UI (inline vs modal).
+- [ ] Define where "+" buttons appear (column headers, command palette).
+- [ ] Specify default values for new tasks (stage, order, timestamps).
+- [ ] Confirm tree view structure (Stage → Task vs Phase → Stage → Task).
