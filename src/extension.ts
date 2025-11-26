@@ -193,6 +193,18 @@ export function activate(context: vscode.ExtensionContext) {
           case 'openRoadmap':
             await handleOpenRoadmap();
             break;
+          case 'readTaskFile':
+            await handleReadTaskFile(panel.webview, message.filePath);
+            break;
+          case 'saveTaskFile':
+            await handleSaveTaskFile(panel.webview, message.filePath, message.content, message.close);
+            break;
+          case 'forceSaveTaskFile':
+            await handleForceSaveTaskFile(panel.webview, message.filePath, message.content, message.close);
+            break;
+          case 'showInfo':
+            vscode.window.showInformationMessage(message.message);
+            break;
         }
       },
       undefined,
@@ -303,6 +315,18 @@ class VibekanSidebarProvider implements vscode.WebviewViewProvider {
             break;
           case 'loadTasks':
             await handleLoadTasks(webviewView.webview);
+            break;
+          case 'readTaskFile':
+            await handleReadTaskFile(webviewView.webview, data.filePath);
+            break;
+          case 'saveTaskFile':
+            await handleSaveTaskFile(webviewView.webview, data.filePath, data.content, data.close);
+            break;
+          case 'forceSaveTaskFile':
+            await handleForceSaveTaskFile(webviewView.webview, data.filePath, data.content, data.close);
+            break;
+          case 'showInfo':
+            vscode.window.showInformationMessage(data.message);
             break;
         }
       });
@@ -477,6 +501,259 @@ async function openFileInEditor(filePath: string) {
     const message = error instanceof Error ? error.message : 'Unable to open file';
     vscode.window.showErrorMessage(message);
   }
+}
+
+// Validate that a file path is within the .vibekan directory
+// Uses realpath to normalize and prevent traversal attacks (e.g., ../.vibekan/../etc) and symlink escapes.
+async function validateVibekanPath(filePath: string): Promise<{ valid: boolean; vibekanRoot?: string; error?: string }> {
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders) {
+    return { valid: false, error: 'No workspace open' };
+  }
+
+  const rootPath = workspaceFolders[0].uri.fsPath;
+  const vibekanRoot = path.resolve(rootPath, '.vibekan');
+
+  let vibekanRealPath: string;
+  try {
+    vibekanRealPath = await fs.promises.realpath(vibekanRoot);
+  } catch {
+    return { valid: false, error: 'No .vibekan workspace found' };
+  }
+
+  // Normalize the input path to resolve any .. or . segments
+  const resolvedPath = path.resolve(filePath);
+  let targetRealPath = resolvedPath;
+  try {
+    targetRealPath = await fs.promises.realpath(resolvedPath);
+  } catch {
+    // File may not exist yet; fallback to resolved path (still protects traversal)
+  }
+
+  // Use path.relative to check if the file is inside .vibekan
+  // If relative path starts with '..', it's outside the directory
+  const relativePath = path.relative(vibekanRealPath, targetRealPath);
+
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    return { valid: false, error: 'Access denied: file is outside .vibekan directory' };
+  }
+
+  return { valid: true, vibekanRoot: vibekanRealPath };
+}
+
+// Track file modification times for conflict detection
+const fileMtimes = new Map<string, number>();
+
+async function handleReadTaskFile(webview: vscode.Webview, filePath: string) {
+  try {
+    // Validate path is within .vibekan
+    const validation = await validateVibekanPath(filePath);
+    if (!validation.valid) {
+      webview.postMessage({
+        command: 'taskFileError',
+        filePath,
+        error: validation.error,
+      });
+      return;
+    }
+
+    const uri = vscode.Uri.file(filePath);
+    const content = await readTextIfExists(uri);
+    if (content !== null) {
+      // Store mtime for conflict detection
+      try {
+        const stat = await vscode.workspace.fs.stat(uri);
+        fileMtimes.set(filePath, stat.mtime);
+      } catch {
+        // Ignore stat errors
+      }
+
+      webview.postMessage({
+        command: 'taskFileContent',
+        filePath,
+        content,
+      });
+    } else {
+      webview.postMessage({
+        command: 'taskFileError',
+        filePath,
+        error: 'File not found',
+      });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to read file';
+    webview.postMessage({
+      command: 'taskFileError',
+      filePath,
+      error: message,
+    });
+  }
+}
+
+async function handleSaveTaskFile(
+  webview: vscode.Webview,
+  filePath: string,
+  content: string,
+  closeAfter: boolean,
+  expectedMtime?: number
+) {
+  try {
+    // Validate path is within .vibekan
+    const validation = await validateVibekanPath(filePath);
+    if (!validation.valid) {
+      webview.postMessage({
+        command: 'taskFileSaveError',
+        filePath,
+        error: validation.error,
+      });
+      return;
+    }
+
+    const uri = vscode.Uri.file(filePath);
+
+    // Check for conflict (file modified externally)
+    const storedMtime = fileMtimes.get(filePath);
+    if (storedMtime !== undefined) {
+      try {
+        const currentStat = await vscode.workspace.fs.stat(uri);
+        if (currentStat.mtime !== storedMtime) {
+          // File was modified externally - notify webview to show conflict dialog
+          webview.postMessage({
+            command: 'taskFileConflict',
+            filePath,
+            message: 'File was modified externally. Overwrite changes?',
+          });
+          return;
+        }
+      } catch {
+        // File may have been deleted, proceed with save
+      }
+    }
+
+    // Parse content to detect stage changes from frontmatter
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    let currentStage: Stage | undefined;
+    if (frontmatterMatch) {
+      const parsed = parseFrontmatter(frontmatterMatch[1]);
+      if (parsed.stage && STAGES.includes(parsed.stage as Stage)) {
+        currentStage = parsed.stage as Stage;
+      }
+    }
+
+    // Extract current stage from file path using path.sep for cross-platform support
+    // Path pattern: .../.vibekan/tasks/{stage}/filename.md
+    const normalizedPath = filePath.split(path.sep).join('/'); // Normalize to forward slashes for regex
+    const pathMatch = normalizedPath.match(/\.vibekan\/tasks\/([^/]+)\//);
+    const pathStage = pathMatch?.[1] as Stage | undefined;
+
+    // Save the file
+    const encoder = new TextEncoder();
+    await vscode.workspace.fs.writeFile(uri, encoder.encode(content));
+
+    // Track if file was moved and the new path
+    let finalFilePath = filePath;
+    let fileMoved = false;
+    let moveErrorMessage: string | null = null;
+
+    // Update stored mtime after successful save
+    try {
+      const newStat = await vscode.workspace.fs.stat(uri);
+      fileMtimes.set(filePath, newStat.mtime);
+    } catch {
+      fileMtimes.delete(filePath);
+    }
+
+    // If stage changed in frontmatter, move the file
+    if (currentStage && pathStage && currentStage !== pathStage && STAGES.includes(currentStage)) {
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (workspaceFolders) {
+        const rootUri = workspaceFolders[0].uri;
+        const tasksUri = vscode.Uri.joinPath(rootUri, '.vibekan', 'tasks');
+        const newStageUri = vscode.Uri.joinPath(tasksUri, currentStage);
+        const fileName = path.basename(filePath); // Cross-platform filename extraction
+        const newFileUri = vscode.Uri.joinPath(newStageUri, fileName);
+
+        try {
+          await ensureDirectory(newStageUri);
+          // Attempt move; if target exists, this will throw
+          await vscode.workspace.fs.rename(uri, newFileUri, { overwrite: false });
+          fileMtimes.delete(filePath);
+          finalFilePath = newFileUri.fsPath;
+          fileMoved = true;
+          // Store mtime for the new path
+          try {
+            const movedStat = await vscode.workspace.fs.stat(newFileUri);
+            fileMtimes.set(finalFilePath, movedStat.mtime);
+          } catch {
+            // Ignore
+          }
+        } catch (moveError) {
+          moveErrorMessage = moveError instanceof Error ? moveError.message : 'Unknown move error';
+
+          // Attempt to revert stage in the saved file to the original stage to avoid inconsistent state
+          if (frontmatterMatch && pathStage) {
+            try {
+              const parsed = parseFrontmatter(frontmatterMatch[1]);
+              parsed.stage = pathStage;
+              const newFrontmatter = serializeFrontmatter(parsed);
+              const bodyStart = frontmatterMatch[0].length;
+              const revertedText = `---\n${newFrontmatter}\n---${content.slice(bodyStart)}`;
+              await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(revertedText));
+              try {
+                const revertedStat = await vscode.workspace.fs.stat(uri);
+                fileMtimes.set(filePath, revertedStat.mtime);
+              } catch {
+                fileMtimes.delete(filePath);
+              }
+            } catch (revertError) {
+              console.error('Failed to revert stage after move failure:', revertError);
+              fileMtimes.delete(filePath);
+            }
+          }
+        }
+      }
+    }
+
+    if (moveErrorMessage) {
+      webview.postMessage({
+        command: 'taskFileSaveError',
+        filePath,
+        error: `Failed to move file to stage "${currentStage ?? 'unknown'}": ${moveErrorMessage}. Stage kept as "${pathStage ?? 'unknown'}".`,
+      });
+      await broadcastTasks();
+      return;
+    }
+
+    webview.postMessage({
+      command: 'taskFileSaved',
+      filePath: finalFilePath, // Return the new path if file was moved
+      originalFilePath: filePath, // Also send original so modal knows which file was saved
+      close: closeAfter,
+      moved: fileMoved,
+    });
+
+    // Broadcast task reload to ALL webviews
+    await broadcastTasks();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save file';
+    webview.postMessage({
+      command: 'taskFileSaveError',
+      filePath,
+      error: message,
+    });
+  }
+}
+
+// Force save without conflict check (used after user confirms overwrite)
+async function handleForceSaveTaskFile(
+  webview: vscode.Webview,
+  filePath: string,
+  content: string,
+  closeAfter: boolean
+) {
+  // Clear stored mtime to bypass conflict check
+  fileMtimes.delete(filePath);
+  await handleSaveTaskFile(webview, filePath, content, closeAfter);
 }
 
 async function ensureDirectory(uri: vscode.Uri) {
@@ -1321,7 +1598,7 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, vi
   // Let's replace the existing CSP if it exists, or insert into head.
   // Vite might not generate a CSP meta tag by default.
 
-  const cspMeta = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource}; font-src ${webview.cspSource}; img-src ${webview.cspSource} https: data:;">`;
+  const cspMeta = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource} blob:; worker-src blob:; font-src ${webview.cspSource} data:; img-src ${webview.cspSource} https: data:;">`;
   const contextScript = `<script nonce="${nonce}">window.vibekanViewType = '${viewType}';</script>`;
 
   // Insert after <head>

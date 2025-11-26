@@ -309,7 +309,12 @@ These are summarized here for continuity; details can be fleshed out phase‑by�
 
 **Detailed specs:** See section 8 below.
 
-### Phase D — Copy‑With‑Context UX (XML-Structured Prompts)
+### Phase D — Copy‑With‑Context UX (XML-Structured Prompts) ✅ COMPLETED
+
+**What shipped:**
+- XML PromptBuilder with Full/Task/Context modes, pretty/compact formatting, and clipboard character counts.
+- Card-level copy dropdown, keyboard shortcuts (`C`, `Cmd/Ctrl+Shift+C`), and in-webview toast feedback.
+- VS Code commands + settings: `vibekan.copyMode.*` for defaults, timestamps, architecture inclusion, XML formatting, and toast duration/visibility.
 
 **Goal:** Enable one-click copying of perfectly structured prompts for AI agents using XML tags for maximum clarity and parseability.
 
@@ -1020,7 +1025,180 @@ vibekan/
 
 ---
 
-### Phase E — Polish & Themes
+### Phase E — Monaco Editor Popup (In-View File Editing)
+
+**Goal:** Enable editing task markdown files directly from the Kanban webview using Monaco Editor in a popup modal, eliminating the need to switch to a separate editor tab.
+
+---
+
+#### E.1 Overview & User Value
+
+**Problem:** Currently, editing a task requires opening the file in VSCode's main editor, switching context away from the Kanban board.
+
+**Solution:** Embed Monaco Editor (the same editor powering VSCode) in a glassmorphic popup modal within the webview, allowing inline editing without leaving the board.
+
+**User benefits:**
+- Stay in flow while editing task details
+- See the Kanban context while editing
+- Full syntax highlighting and VSCode keybindings
+- Instant save without switching tabs
+
+---
+
+#### E.2 UI Specification
+
+**Trigger points (same as "Open File" action):**
+1. **Edit icon button** — New pencil icon next to the existing "open file" icon on task card hover
+2. **Keyboard shortcut** — `E` key when task card is focused
+3. **Context menu** — "Edit in Popup" option in task card right-click menu
+
+**Modal appearance:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│ ✏️ Edit: implement-navbar-component.md            [×] Close │
+├─────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ ---                                                     │ │
+│ │ id: task-implement-navbar                               │ │
+│ │ title: Implement navbar component                       │ │
+│ │ stage: code                                             │ │
+│ │ phase: navbar-phase1                                    │ │
+│ │ ---                                                     │ │
+│ │                                                         │ │
+│ │ # Implementation Notes                                  │ │
+│ │                                                         │ │
+│ │ - Use React functional component                        │ │
+│ │ - Add glassmorphism styling                             │ │
+│ │ |  ← cursor                                             │ │
+│ │                                                         │ │
+│ └─────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│                              [Cancel]  [Save] [Save & Close]│
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Modal specifications:**
+- Width: 80% of viewport, max 900px
+- Height: 70% of viewport, max 700px
+- Background: Glassmorphic panel matching existing modal aesthetic
+- Border: Gradient glass border (same as task creation modal)
+- Corner radius: 16px
+- Backdrop: Semi-transparent dark overlay with blur
+
+**Editor specifications:**
+- Monaco Editor instance with markdown language mode
+- Theme: Dark theme matching Vibekan aesthetic (vs-dark or custom)
+- Font: Monospace, 14px (configurable)
+- Features enabled:
+  - Line numbers
+  - Minimap (optional, off by default for space)
+  - Word wrap
+  - Bracket matching
+  - YAML frontmatter syntax highlighting
+
+---
+
+#### E.3 Editor Behavior
+
+**Loading:**
+1. User triggers edit action on a task card
+2. Modal opens with loading spinner
+3. Extension reads file content via `vscode.postMessage({ command: 'readTaskFile', taskId })`
+4. Extension returns content, Monaco editor initializes with content
+5. Cursor positioned at end of file (or remembered position)
+
+**Saving:**
+1. User clicks "Save" or presses `Ctrl/Cmd+S`
+2. Content sent to extension: `vscode.postMessage({ command: 'saveTaskFile', taskId, content })`
+3. Extension writes to file, preserving file permissions
+4. Success toast: "✓ Saved" (non-blocking, auto-dismiss)
+5. If frontmatter `stage` changed, task moves to new column in board
+
+**Conflict detection:**
+1. On save, check if file `mtime` changed since load
+2. If conflict detected, show dialog:
+   - "File was modified externally. Overwrite or reload?"
+   - Options: [Overwrite] [Reload] [Cancel]
+
+**Unsaved changes:**
+1. Track dirty state (content differs from last saved)
+2. Show dot indicator in title bar: "✏️ Edit: file.md •"
+3. On close attempt with unsaved changes:
+   - "You have unsaved changes. Discard or save?"
+   - Options: [Discard] [Save & Close] [Cancel]
+
+---
+
+#### E.4 Keyboard Shortcuts (in Editor Modal)
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl/Cmd+S` | Save |
+| `Ctrl/Cmd+Shift+S` | Save & Close |
+| `Escape` | Close (prompts if unsaved) |
+| `Ctrl/Cmd+Z` | Undo |
+| `Ctrl/Cmd+Shift+Z` | Redo |
+| `Ctrl/Cmd+F` | Find |
+| `Ctrl/Cmd+H` | Find & Replace |
+
+All standard Monaco/VSCode keybindings work within the editor.
+
+---
+
+#### E.5 Implementation Notes
+
+**Dependencies to add:**
+```json
+{
+  "@monaco-editor/react": "^4.6.0"
+}
+```
+
+**Bundle size consideration:**
+- Monaco adds ~2MB to the bundle
+- Use dynamic import to lazy-load: `const MonacoEditor = lazy(() => import('@monaco-editor/react'))`
+- Show loading spinner while Monaco loads
+
+**Component structure:**
+```
+src/components/
+├── EditorModal.tsx      # Modal wrapper with glassmorphism
+├── MonacoWrapper.tsx    # Monaco editor with configuration
+└── EditorToolbar.tsx    # Save/Cancel buttons, file info
+```
+
+**Message handlers to add in extension.ts:**
+```typescript
+case 'readTaskFile':
+  // Read file content and return to webview
+  break;
+case 'saveTaskFile':
+  // Write content to file, handle conflicts
+  break;
+```
+
+**CSP (Content Security Policy) update:**
+- Monaco requires `blob:` and `data:` URIs for workers
+- Update webview CSP in extension.ts to allow Monaco resources
+
+---
+
+#### E.6 Testing Checklist
+
+- [ ] Test opening editor from hover icon, keyboard shortcut, and context menu
+- [ ] Test editing and saving a task file
+- [ ] Test `Ctrl/Cmd+S` saves without closing modal
+- [ ] Test conflict detection when file modified externally
+- [ ] Test unsaved changes warning on close
+- [ ] Test frontmatter parsing after save (stage changes update board)
+- [ ] Test with large files (500+ lines)
+- [ ] Test Monaco lazy loading (loading spinner appears)
+- [ ] Verify all Monaco keybindings work (Ctrl+Z, Ctrl+F, etc.)
+- [ ] Test on slow network (Monaco CDN fallback)
+
+---
+
+### Phase F — Polish & Themes
 
 - Refine glassmorphism tokens, transitions, and accessibility:
   - Ensure contrast in dark mode.

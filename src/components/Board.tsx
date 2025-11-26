@@ -20,6 +20,7 @@ import { Column } from './Column';
 import { useTasks } from '../hooks/useTasks';
 import { getVsCodeApi } from '../utils/vscode';
 import { Toast } from './Toast';
+import { EditorModal } from './EditorModal';
 
 const MODE_LABELS: Record<CopyMode, string> = {
   full: 'Full Context',
@@ -98,9 +99,18 @@ export const Board: React.FC = () => {
     toastDuration: 3000,
   });
   const [toast, setToast] = useState<{ message: string; kind: 'success' | 'error'; duration: number } | null>(null);
+  const [editorTask, setEditorTask] = useState<Task | null>(null);
   const originalStageRef = useRef<Stage | null>(null);
   const lastOverIdRef = useRef<string | null>(null);
   const vscode = getVsCodeApi();
+
+  const handleEditFile = useCallback((task: Task) => {
+    setEditorTask(task);
+  }, []);
+
+  const handleCloseEditor = useCallback(() => {
+    setEditorTask(null);
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -411,6 +421,7 @@ export const Board: React.FC = () => {
               defaultCopyMode={copySettings.defaultMode}
               openCopyMenuFor={openCopyMenuFor}
               onCloseCopyMenu={() => setOpenCopyMenuFor(null)}
+              onEditFile={handleEditFile}
             />
           ))}
         </div>
@@ -424,6 +435,14 @@ export const Board: React.FC = () => {
           message={toast.message}
           kind={toast.kind}
           onDismiss={() => setToast(null)}
+        />
+      )}
+      {editorTask && (
+        <EditorModal
+          open={!!editorTask}
+          filePath={editorTask.filePath}
+          fileName={editorTask.title}
+          onClose={handleCloseEditor}
         />
       )}
     </div>

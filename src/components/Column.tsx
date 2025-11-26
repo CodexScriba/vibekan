@@ -13,6 +13,7 @@ interface ColumnProps {
   defaultCopyMode: CopyMode;
   openCopyMenuFor?: string | null;
   onCloseCopyMenu?: () => void;
+  onEditFile?: (task: Task) => void;
 }
 
 export const Column: React.FC<ColumnProps> = ({
@@ -23,6 +24,7 @@ export const Column: React.FC<ColumnProps> = ({
   defaultCopyMode,
   openCopyMenuFor,
   onCloseCopyMenu,
+  onEditFile,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: stage,
@@ -53,6 +55,7 @@ export const Column: React.FC<ColumnProps> = ({
               defaultCopyMode={defaultCopyMode}
               forceDropdownOpen={openCopyMenuFor === task.id}
               onDropdownClose={onCloseCopyMenu}
+              onEditFile={onEditFile}
             />
           ))}
         </SortableContext>

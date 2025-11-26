@@ -43,7 +43,7 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 - **Task Cards**: Display title, phase badge, tags, and agent
 - **Keyboard Navigation**:
   - Arrow keys to navigate between cards and columns
-  - `C` key to copy task prompt with full context
+  - `C` key copies prompt using the configured default copy mode; `Ctrl/Cmd+Shift+C` opens the copy dropdown on the selected card
 - **Open File Shortcut (Phase C)**:
   - Hover icon, double-click, or `Enter` on a task card opens the underlying markdown file in the editor
 - **Order Persistence**: Task positions saved to disk with `order` field in frontmatter
@@ -51,6 +51,13 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 - **Timestamp Preservation**: File timestamps maintained when creating frontmatter
 
 **Note**: Task creation UI coming in Phase C. Currently tasks must be created manually as `.md` files in `.vibekan/tasks/<stage>/` folders.
+
+### Copy-With-Context (Phase D ✅ Completed)
+- **Copy modes:** Full Context (default), Task Only, Context Only; selectable via dropdown on each card and command palette commands.
+- **XML prompts:** Structured prompts assembled with stage/phase/agent/custom/architecture context and user notes; clipboard copy with character count feedback.
+- **Settings:** `vibekan.copyMode.*` options control default mode, timestamps, architecture inclusion, XML formatting, toast visibility/duration.
+- **Commands:** `Vibekan: Copy Task (Full Context)`, `Vibekan: Copy Task Only`, `Vibekan: Copy Context Only` (Quick Pick task selector when triggered outside the board).
+- **UI feedback:** Glassy dropdown and toast notification in the board webview after copy.
 
 ## Project File Tree
 
@@ -83,13 +90,17 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 │   │   ├── Board.tsx           # Main Kanban board component
 │   │   ├── Column.tsx          # Stage column component
 │   │   ├── TaskCard.tsx        # Draggable task card component
+│   │   ├── CopyDropdown.tsx    # Copy mode picker on task cards
+│   │   ├── Toast.tsx           # In-webview toast notification
 │   │   └── Sidebar.tsx         # Sidebar view component
 │   ├── hooks/                  # React hooks
 │   │   └── useTasks.ts         # Task loading and state management hook
 │   ├── types/                  # TypeScript type definitions
+│   │   ├── copy.ts             # Copy mode types and messages
 │   │   ├── global.d.ts         # Global window types
 │   │   └── task.ts             # Task interface and stage constants
 │   ├── utils/                  # Utility functions
+│   │   ├── promptBuilder.ts    # XML prompt assembly
 │   │   └── vscode.ts           # VS Code API singleton
 │   ├── App.tsx                 # Main React application component
 │   ├── extension.ts            # VSCode extension entry point (task file ops, message handlers)

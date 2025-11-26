@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Pencil } from 'lucide-react';
 import { Task } from '../types/task';
 import { CopyMode } from '../types/copy';
 import { getVsCodeApi } from '../utils/vscode';
@@ -14,6 +14,7 @@ interface TaskCardProps {
   defaultCopyMode: CopyMode;
   forceDropdownOpen?: boolean;
   onDropdownClose?: () => void;
+  onEditFile?: (task: Task) => void;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -23,6 +24,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   defaultCopyMode,
   forceDropdownOpen,
   onDropdownClose,
+  onEditFile,
 }) => {
   const vscode = getVsCodeApi();
   
@@ -48,6 +50,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
+  const handleEditFile = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    onEditFile?.(task);
+  };
+
   const handleClick = () => {
     onSelect?.(task.id);
   };
@@ -55,6 +62,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleOpenFile();
+    }
+    if (e.key === 'e' || e.key === 'E') {
+      e.preventDefault();
+      handleEditFile();
     }
   };
 
@@ -74,14 +85,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     >
       <div className="task-card-header">
         <span className="task-card-title">{task.title}</span>
-        <button
-          className="task-card-open"
-          onClick={handleOpenFile}
-          title="Open task file (Enter)"
-          aria-label="Open task file"
-        >
-          <ExternalLink size={14} />
-        </button>
+        <div className="task-card-actions">
+          <button
+            className="task-card-edit"
+            onClick={handleEditFile}
+            title="Edit in popup (E)"
+            aria-label="Edit task file"
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            className="task-card-open"
+            onClick={handleOpenFile}
+            title="Open in editor (Enter)"
+            aria-label="Open task file"
+          >
+            <ExternalLink size={14} />
+          </button>
+        </div>
       </div>
       
       {(task.phase || (task.tags && task.tags.length > 0)) && (
