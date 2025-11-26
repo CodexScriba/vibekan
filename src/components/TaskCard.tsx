@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Copy } from 'lucide-react';
+import { Copy, ExternalLink } from 'lucide-react';
 import { Task } from '../types/task';
 import { getVsCodeApi } from '../utils/vscode';
 
@@ -29,10 +29,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isSelected, onSelect }
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const handleCopyPrompt = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleCopyPrompt = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (vscode) {
       vscode.postMessage({ command: 'copyPrompt', taskId: task.id });
+    }
+  };
+
+  const handleOpenFile = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (vscode) {
+      vscode.postMessage({ command: 'openTaskFile', filePath: task.filePath });
     }
   };
 
@@ -43,6 +50,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isSelected, onSelect }
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'c' || e.key === 'C') {
       handleCopyPrompt(e as unknown as React.MouseEvent);
+    }
+    if (e.key === 'Enter') {
+      handleOpenFile();
     }
   };
 
@@ -56,6 +66,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isSelected, onSelect }
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       tabIndex={0}
+      onDoubleClick={handleOpenFile}
       role="button"
       aria-label={`Task: ${task.title}`}
     >
@@ -68,6 +79,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isSelected, onSelect }
           aria-label="Copy task prompt"
         >
           <Copy size={14} />
+        </button>
+        <button
+          className="task-card-open"
+          onClick={handleOpenFile}
+          title="Open task file (Enter)"
+          aria-label="Open task file"
+        >
+          <ExternalLink size={14} />
         </button>
       </div>
       

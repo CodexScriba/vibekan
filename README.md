@@ -27,6 +27,9 @@ A dedicated **Vibekan** view container is available in the VS Code Activity Bar.
 1.  **Generate Vibekan** (`vibekan.generate`): Scaffolds the `.vibekan` workspace folder and default context files if they don't exist.
 2.  **Open Vibekan View** (`vibekan.openBoard`): Opens the main Kanban board webview with full drag-and-drop functionality.
 3.  **Settings** (`vibekan.openSettings`): Opens the VS Code settings filtered to `vibekan` configuration.
+4.  **Quick Create Navbar (Phase C)**: Inline glass toolbar for creating tasks, phases, agents, contexts, and jumping to `architecture.md` without leaving the sidebar.
+5.  **Task Tree (Phase C)**: Phase → Stage → Task hierarchy with move/duplicate/delete actions and “open file” shortcuts.
+6.  **Task Modal (Phase C)**: Glassmorphic modal for creating tasks with stage, phase, agent, context, tags, and content; remembers last selections.
 
 ### Kanban Board (Phase B ✅ Completed)
 A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
@@ -41,6 +44,8 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 - **Keyboard Navigation**:
   - Arrow keys to navigate between cards and columns
   - `C` key to copy task prompt with full context
+- **Open File Shortcut (Phase C)**:
+  - Hover icon, double-click, or `Enter` on a task card opens the underlying markdown file in the editor
 - **Order Persistence**: Task positions saved to disk with `order` field in frontmatter
 - **Smart Sorting**: Tasks sorted by order (undefined orders sort to end)
 - **Timestamp Preservation**: File timestamps maintained when creating frontmatter

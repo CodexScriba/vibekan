@@ -7,6 +7,7 @@ export interface Task {
   type?: string;
   phase?: string;
   agent?: string;
+  context?: string;
   tags?: string[];
   created: string;
   updated: string;

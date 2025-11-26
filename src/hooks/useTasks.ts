@@ -48,6 +48,12 @@ export const useTasks = (): UseTasksReturn => {
             );
           }
           break;
+        case 'taskCreated':
+          if (message.task) {
+            setTasks((prev) => [...prev, message.task]);
+            setLoading(false);
+          }
+          break;
         case 'taskUpdated':
           if (message.task) {
             setTasks((prev) =>

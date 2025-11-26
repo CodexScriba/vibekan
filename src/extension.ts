@@ -1,27 +1,69 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-
-interface Task {
-  id: string;
-  title: string;
-  stage: string;
-  type?: string;
-  phase?: string;
-  agent?: string;
-  tags?: string[];
-  created: string;
-  updated: string;
-  filePath: string;
-  userContent?: string;
-  order?: number;
-}
+import { Task, STAGES, Stage } from './types/task';
 
 interface ParsedFrontmatter {
   [key: string]: string | string[] | undefined;
 }
 
-const STAGES = ['chat', 'queue', 'plan', 'code', 'audit', 'completed'];
+let boardWebview: vscode.Webview | null = null;
+let sidebarWebview: vscode.Webview | null = null;
+
+interface ContextData {
+  phases: string[];
+  agents: string[];
+  contexts: string[];
+}
+
+function slugify(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'item';
+}
+
+async function ensureVibekanRoot(): Promise<vscode.Uri | null> {
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders) {
+    return null;
+  }
+  const rootUri = workspaceFolders[0].uri;
+  const vibekanUri = vscode.Uri.joinPath(rootUri, '.vibekan');
+  try {
+    await vscode.workspace.fs.stat(vibekanUri);
+    return vibekanUri;
+  } catch {
+    return null;
+  }
+}
+
+async function listFilesWithoutExtension(dir: vscode.Uri): Promise<string[]> {
+  try {
+    const entries = await vscode.workspace.fs.readDirectory(dir);
+    return entries
+      .filter(([name, type]) => type === vscode.FileType.File && name.endsWith('.md'))
+      .map(([name]) => name.replace(/\.md$/, ''))
+      .sort((a, b) => a.localeCompare(b));
+  } catch {
+    return [];
+  }
+}
+
+async function loadContextData(): Promise<ContextData> {
+  const vibekanUri = await ensureVibekanRoot();
+  if (!vibekanUri) return { phases: [], agents: [], contexts: [] };
+
+  const phases = await listFilesWithoutExtension(vscode.Uri.joinPath(vibekanUri, '_context', 'phases'));
+  const agents = await listFilesWithoutExtension(vscode.Uri.joinPath(vibekanUri, '_context', 'agents'));
+  const contextsDir = vscode.Uri.joinPath(vibekanUri, '_context', 'custom');
+  const customContexts = await listFilesWithoutExtension(contextsDir);
+  const contexts = ['architecture', ...customContexts];
+
+  return { phases, agents, contexts };
+}
 
 export function activate(context: vscode.ExtensionContext) {
   // Register the Sidebar View Provider
@@ -45,6 +87,11 @@ export function activate(context: vscode.ExtensionContext) {
       }
     );
 
+    boardWebview = panel.webview;
+    panel.onDidDispose(() => {
+      boardWebview = null;
+    });
+
     panel.webview.html = getWebviewContent(panel.webview, context.extensionUri, 'board');
 
     // Handle messages from the board
@@ -64,13 +111,22 @@ export function activate(context: vscode.ExtensionContext) {
             await handleLoadTasks(panel.webview);
             break;
           case 'moveTask':
-            await handleMoveTask(panel.webview, message.taskId, message.fromStage, message.toStage, message.targetOrder);
+            await handleMoveTask(
+              panel.webview,
+              message.taskId,
+              message.fromStage as Stage,
+              message.toStage as Stage,
+              message.targetOrder
+            );
             break;
           case 'copyPrompt':
             await handleCopyPrompt(message.taskId);
             break;
           case 'reorderTasks':
-            await handleReorderTasks(panel.webview, message.stage, message.taskOrder);
+            await handleReorderTasks(panel.webview, message.stage as Stage, message.taskOrder);
+            break;
+          case 'openTaskFile':
+            await openFileInEditor(message.filePath);
             break;
         }
       },
@@ -92,6 +148,7 @@ class VibekanSidebarProvider implements vscode.WebviewViewProvider {
     context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken,
   ) {
+    sidebarWebview = webviewView.webview;
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [
@@ -102,23 +159,62 @@ class VibekanSidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = getWebviewContent(webviewView.webview, this._extensionUri, 'sidebar');
 
-    webviewView.webview.onDidReceiveMessage(async (data) => {
-      switch (data.command) {
-        case 'generateVibekan':
-          await handleGenerateVibekan(webviewView.webview);
-          break;
-        case 'openBoard':
-          vscode.commands.executeCommand('vibekan.openBoard');
-          break;
-        case 'openSettings':
-          vscode.commands.executeCommand('workbench.action.openSettings', 'vibekan');
-          break;
-        case 'checkState':
-          await handleCheckState(webviewView.webview);
-          break;
-      }
-    });
-  }
+      webviewView.webview.onDidReceiveMessage(async (data) => {
+        switch (data.command) {
+          case 'generateVibekan':
+            await handleGenerateVibekan(webviewView.webview);
+            break;
+          case 'openBoard':
+            vscode.commands.executeCommand('vibekan.openBoard');
+            break;
+          case 'openSettings':
+            vscode.commands.executeCommand('workbench.action.openSettings', 'vibekan');
+            break;
+          case 'checkState':
+            await handleCheckState(webviewView.webview);
+            break;
+          case 'loadContextData':
+            await sendContextData(webviewView.webview);
+            break;
+          case 'createTask':
+            await handleCreateTask(webviewView.webview, data.payload);
+            break;
+          case 'createAgent':
+            await handleCreateAgent(webviewView.webview, data.payload ?? { name: data.name });
+            break;
+          case 'createPhase':
+            await handleCreatePhase(webviewView.webview, data.payload ?? { name: data.name });
+            break;
+          case 'createContext':
+            await handleCreateContext(webviewView.webview, data.payload ?? { name: data.name });
+            break;
+          case 'openArchitecture':
+            await handleOpenArchitecture();
+            break;
+          case 'deleteTask':
+            await handleDeleteTask(data.taskId);
+            break;
+          case 'duplicateTask':
+            await handleDuplicateTask(webviewView.webview, data.taskId);
+            break;
+          case 'openTaskFile':
+            await openFileInEditor(data.filePath);
+            break;
+          case 'moveTask':
+            await handleMoveTask(
+              webviewView.webview,
+              data.taskId,
+              data.fromStage as Stage,
+              data.toStage as Stage,
+              data.targetOrder
+            );
+            break;
+          case 'loadTasks':
+            await handleLoadTasks(webviewView.webview);
+            break;
+        }
+      });
+    }
 }
 
 async function handleGenerateVibekan(webview: vscode.Webview) {
@@ -140,7 +236,7 @@ async function handleGenerateVibekan(webview: vscode.Webview) {
     try {
       await vscode.workspace.fs.createDirectory(vibekanUri);
       // Scaffold subdirectories
-      const dirs = ['tasks/chat', 'tasks/queue', 'tasks/plan', 'tasks/code', 'tasks/audit', 'tasks/completed', '_context/stages', '_context/phases', '_context/agents'];
+      const dirs = ['tasks/chat', 'tasks/queue', 'tasks/plan', 'tasks/code', 'tasks/audit', 'tasks/completed', '_context/stages', '_context/phases', '_context/agents', '_context/custom'];
       for (const dir of dirs) {
         await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(vibekanUri, dir));
       }
@@ -153,6 +249,13 @@ async function handleGenerateVibekan(webview: vscode.Webview) {
         },
       ];
 
+      for (const stage of STAGES) {
+        files.push({
+          path: `_context/stages/${stage}.md`,
+          contents: `# Stage: ${stage}\n\nDescribe how tasks should be executed in this stage.\n`,
+        });
+      }
+
       for (const file of files) {
         const target = vscode.Uri.joinPath(vibekanUri, file.path);
         await vscode.workspace.fs.writeFile(target, Buffer.from(file.contents, 'utf8'));
@@ -161,6 +264,7 @@ async function handleGenerateVibekan(webview: vscode.Webview) {
       webview.postMessage({ type: 'result', command: 'generateVibekan', ok: true });
       // Also send state update
       webview.postMessage({ type: 'state', exists: true });
+      await broadcastContextData();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       webview.postMessage({ type: 'result', command: 'generateVibekan', ok: false, message: `Failed to create workspace: ${errorMessage}` });
@@ -185,10 +289,23 @@ async function handleCheckState(webview: vscode.Webview) {
 }
 
 async function handleLoadTasks(webview: vscode.Webview) {
+  const tasks = await loadTasksList();
+  if (!tasks) {
+    webview.postMessage({ type: 'tasksError', message: 'No .vibekan workspace found. Generate one first.' });
+    return;
+  }
+  webview.postMessage({ type: 'tasks', tasks });
+}
+
+async function sendContextData(webview: vscode.Webview) {
+  const data = await loadContextData();
+  webview.postMessage({ type: 'contextData', data });
+}
+
+async function loadTasksList(): Promise<Task[] | null> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders) {
-    webview.postMessage({ type: 'tasksError', message: 'No workspace open' });
-    return;
+    return null;
   }
 
   const rootUri = workspaceFolders[0].uri;
@@ -198,8 +315,7 @@ async function handleLoadTasks(webview: vscode.Webview) {
   try {
     await vscode.workspace.fs.stat(vibekanUri);
   } catch {
-    webview.postMessage({ type: 'tasksError', message: 'No .vibekan workspace found. Generate one first.' });
-    return;
+    return null;
   }
 
   const tasks: Task[] = [];
@@ -220,7 +336,6 @@ async function handleLoadTasks(webview: vscode.Webview) {
         }
       }
       
-      // Sort tasks by order field (undefined sorts to end), with stable fallback to id
       stageTasks.sort((a, b) => {
         const orderA = a.order ?? Infinity;
         const orderB = b.order ?? Infinity;
@@ -232,11 +347,209 @@ async function handleLoadTasks(webview: vscode.Webview) {
       
       tasks.push(...stageTasks);
     } catch {
-      // Stage folder may not exist or be empty
+      // Ignore missing folders
     }
   }
 
-  webview.postMessage({ type: 'tasks', tasks });
+  return tasks;
+}
+
+async function broadcastTasks() {
+  const tasks = await loadTasksList();
+  if (!tasks) return;
+
+  if (sidebarWebview) {
+    sidebarWebview.postMessage({ type: 'tasks', tasks });
+  }
+
+  if (boardWebview) {
+    boardWebview.postMessage({ type: 'tasks', tasks });
+  }
+}
+
+async function broadcastContextData() {
+  const data = await loadContextData();
+  if (sidebarWebview) {
+    sidebarWebview.postMessage({ type: 'contextData', data });
+  }
+  if (boardWebview) {
+    boardWebview.postMessage({ type: 'contextData', data });
+  }
+}
+
+async function openFileInEditor(filePath: string) {
+  try {
+    const uri = vscode.Uri.file(filePath);
+    await vscode.window.showTextDocument(uri, { preview: false });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to open file';
+    vscode.window.showErrorMessage(message);
+  }
+}
+
+async function ensureDirectory(uri: vscode.Uri) {
+  try {
+    await vscode.workspace.fs.stat(uri);
+  } catch {
+    await vscode.workspace.fs.createDirectory(uri);
+  }
+}
+
+async function createTemplateFile(target: vscode.Uri, contents: string) {
+  const dir = vscode.Uri.file(path.dirname(target.fsPath));
+  await ensureDirectory(dir);
+  await vscode.workspace.fs.writeFile(target, Buffer.from(contents, 'utf8'));
+}
+
+async function createPhaseFile(vibekanUri: vscode.Uri, name: string, content?: string) {
+  const slug = slugify(name);
+  const target = vscode.Uri.joinPath(vibekanUri, '_context', 'phases', `${slug}.md`);
+  const now = new Date().toISOString();
+  const body =
+    content && content.trim().length > 0
+      ? content
+      : `# ${name}\n\nDescribe the goals, scope, and constraints for this phase.\n\n_Last updated: ${now}_\n`;
+  await createTemplateFile(target, body);
+  return slug;
+}
+
+async function createAgentFile(vibekanUri: vscode.Uri, name: string, content?: string) {
+  const slug = slugify(name);
+  const target = vscode.Uri.joinPath(vibekanUri, '_context', 'agents', `${slug}.md`);
+  const body =
+    content && content.trim().length > 0
+      ? content
+      : `# Agent: ${name}\n\n- Role: Describe responsibilities.\n- Voice & Style: Crisp, actionable.\n- Preferred Tools: List tools or stack.\n- Constraints: Note any boundaries.\n`;
+  await createTemplateFile(target, body);
+  return slug;
+}
+
+async function createContextFile(vibekanUri: vscode.Uri, name: string, content?: string) {
+  const slug = slugify(name);
+  const target = vscode.Uri.joinPath(vibekanUri, '_context', 'custom', `${slug}.md`);
+  const body =
+    content && content.trim().length > 0
+      ? content
+      : `# Context: ${name}\n\nAdd design notes, requirements, or specs relevant to attached tasks.\n`;
+  await createTemplateFile(target, body);
+  return slug;
+}
+
+async function readTextIfExists(uri: vscode.Uri): Promise<string | null> {
+  try {
+    const buf = await vscode.workspace.fs.readFile(uri);
+    return Buffer.from(buf).toString('utf8');
+  } catch {
+    return null;
+  }
+}
+
+async function createTaskFile(payload: {
+  title: string;
+  stage: Stage;
+  phase?: string;
+  agent?: string;
+  context?: string;
+  tags?: string[];
+  content?: string;
+}): Promise<Task | null> {
+  const vibekanUri = await ensureVibekanRoot();
+  if (!vibekanUri) {
+    vscode.window.showErrorMessage('No .vibekan workspace found. Generate Vibekan first.');
+    return null;
+  }
+
+  const stage: Stage = STAGES.includes(payload.stage) ? payload.stage : 'chat';
+  const tasksRoot = vscode.Uri.joinPath(vibekanUri, 'tasks');
+  const stageUri = vscode.Uri.joinPath(tasksRoot, stage);
+  await ensureDirectory(stageUri);
+
+  const now = new Date().toISOString();
+  const baseId = `task-${slugify(payload.title)}`;
+  let uniqueId = baseId;
+  let counter = 1;
+
+  while (true) {
+    const candidateUri = vscode.Uri.joinPath(stageUri, `${uniqueId}.md`);
+    try {
+      await vscode.workspace.fs.stat(candidateUri);
+      counter += 1;
+      uniqueId = `${baseId}-${counter}`;
+    } catch {
+      break;
+    }
+  }
+
+  const stageFiles = await vscode.workspace.fs.readDirectory(stageUri);
+  let maxOrder = -1;
+  let taskCount = 0;
+  for (const [fileName, fileType] of stageFiles) {
+    if (fileType === vscode.FileType.File && fileName.endsWith('.md')) {
+      taskCount += 1;
+      const fileUri = vscode.Uri.joinPath(stageUri, fileName);
+      const existing = await parseTaskFile(fileUri, stage);
+      if (existing && typeof existing.order === 'number' && existing.order > maxOrder) {
+        maxOrder = existing.order;
+      }
+    }
+  }
+  const order = maxOrder >= 0 ? maxOrder + 1 : taskCount;
+
+  const fm: ParsedFrontmatter = {
+    id: uniqueId,
+    title: payload.title,
+    stage,
+    type: 'task',
+    created: now,
+    updated: now,
+    order: String(order),
+  };
+
+  if (payload.phase) fm.phase = payload.phase;
+  if (payload.agent) fm.agent = payload.agent;
+  if (payload.context) fm.context = payload.context;
+  if (payload.tags && payload.tags.length > 0) fm.tags = payload.tags;
+
+  const stageContext = await readTextIfExists(vscode.Uri.joinPath(vibekanUri, '_context', 'stages', `${stage}.md`));
+  const phaseContext = payload.phase
+    ? await readTextIfExists(vscode.Uri.joinPath(vibekanUri, '_context', 'phases', `${payload.phase}.md`))
+    : null;
+  const agentContext = payload.agent
+    ? await readTextIfExists(vscode.Uri.joinPath(vibekanUri, '_context', 'agents', `${payload.agent}.md`))
+    : null;
+  const customContext = payload.context
+    ? await readTextIfExists(vscode.Uri.joinPath(vibekanUri, '_context', 'custom', `${payload.context}.md`))
+    : null;
+  const architectureContext = await readTextIfExists(vscode.Uri.joinPath(vibekanUri, '_context', 'architecture.md'));
+
+  const managedSections = [
+    '<!-- MANAGED: DO NOT EDIT BELOW THIS LINE -->',
+    `## 🎯 Stage: ${stage}\n${stageContext ?? 'Add stage guidance in _context/stages/' + stage + '.md'}`,
+  ];
+
+  if (phaseContext && payload.phase) {
+    managedSections.push(`\n## 📦 Phase: ${payload.phase}\n${phaseContext}`);
+  }
+  if (agentContext && payload.agent) {
+    managedSections.push(`\n## 🤖 Agent: ${payload.agent}\n${agentContext}`);
+  }
+  if (customContext && payload.context) {
+    managedSections.push(`\n## 📄 Context: ${payload.context}\n${customContext}`);
+  }
+  if (architectureContext) {
+    managedSections.push(`\n## 🌍 Architecture\n${architectureContext}`);
+  }
+
+  managedSections.push('');
+
+  const userContent = payload.content?.trim() ?? '';
+  const fileText = `---\n${serializeFrontmatter(fm)}\n---\n\n${managedSections.join('\n')}\n<!-- USER CONTENT -->\n${userContent}\n`;
+
+  const targetUri = vscode.Uri.joinPath(stageUri, `${uniqueId}.md`);
+  await vscode.workspace.fs.writeFile(targetUri, Buffer.from(fileText, 'utf8'));
+
+  const createdTask = await parseTaskFile(targetUri, stage);
+  return createdTask;
 }
 
 function parseFrontmatter(frontmatterText: string): ParsedFrontmatter {
@@ -277,7 +590,7 @@ function parseFrontmatter(frontmatterText: string): ParsedFrontmatter {
 
 function serializeFrontmatter(data: ParsedFrontmatter): string {
   const lines: string[] = [];
-  const keyOrder = ['id', 'title', 'stage', 'type', 'phase', 'agent', 'tags', 'order', 'created', 'updated'];
+  const keyOrder = ['id', 'title', 'stage', 'type', 'phase', 'agent', 'context', 'tags', 'order', 'created', 'updated'];
   const processedKeys = new Set<string>();
   
   for (const key of keyOrder) {
@@ -306,7 +619,7 @@ function serializeFrontmatter(data: ParsedFrontmatter): string {
   return lines.join('\n');
 }
 
-async function parseTaskFile(fileUri: vscode.Uri, stage: string): Promise<Task | null> {
+async function parseTaskFile(fileUri: vscode.Uri, stage: Stage): Promise<Task | null> {
   try {
     const content = await vscode.workspace.fs.readFile(fileUri);
     const text = Buffer.from(content).toString('utf8');
@@ -337,11 +650,15 @@ async function parseTaskFile(fileUri: vscode.Uri, stage: string): Promise<Task |
     }
 
     const parsed = parseFrontmatter(frontmatterMatch[1]);
+    const parsedStage =
+      typeof parsed.stage === 'string' && STAGES.includes(parsed.stage as Stage)
+        ? (parsed.stage as Stage)
+        : stage;
     
     const task: Task = {
       id: typeof parsed.id === 'string' ? parsed.id : fileName,
       title: typeof parsed.title === 'string' ? parsed.title : fileName.replace(/-/g, ' '),
-      stage: typeof parsed.stage === 'string' ? parsed.stage : stage,
+      stage: parsedStage,
       created: typeof parsed.created === 'string' ? parsed.created : fallbackCreated,
       updated: typeof parsed.updated === 'string' ? parsed.updated : fallbackUpdated,
       filePath: fileUri.fsPath,
@@ -350,6 +667,7 @@ async function parseTaskFile(fileUri: vscode.Uri, stage: string): Promise<Task |
     if (typeof parsed.type === 'string') task.type = parsed.type;
     if (typeof parsed.phase === 'string') task.phase = parsed.phase;
     if (typeof parsed.agent === 'string') task.agent = parsed.agent;
+    if (typeof parsed.context === 'string') task.context = parsed.context;
     if (Array.isArray(parsed.tags)) task.tags = parsed.tags;
     if (typeof parsed.order === 'string') task.order = parseInt(parsed.order, 10);
 
@@ -365,7 +683,7 @@ async function parseTaskFile(fileUri: vscode.Uri, stage: string): Promise<Task |
   }
 }
 
-async function handleMoveTask(webview: vscode.Webview, taskId: string, fromStage: string, toStage: string, targetOrder?: number) {
+async function handleMoveTask(webview: vscode.Webview, taskId: string, fromStage: Stage, toStage: Stage, targetOrder?: number) {
   if (fromStage === toStage) {
     webview.postMessage({ type: 'taskMoved', ok: true, taskId, toStage });
     return;
@@ -508,13 +826,14 @@ async function handleMoveTask(webview: vscode.Webview, taskId: string, fromStage
     await vscode.workspace.fs.delete(sourceUri);
 
     webview.postMessage({ type: 'taskMoved', ok: true, taskId, toStage });
+    await broadcastTasks();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     webview.postMessage({ type: 'taskMoved', ok: false, message: `Failed to move task: ${errorMessage}` });
   }
 }
 
-async function handleReorderTasks(webview: vscode.Webview, stage: string, taskOrder: string[]) {
+async function handleReorderTasks(webview: vscode.Webview, stage: Stage, taskOrder: string[]) {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders) {
     return;
@@ -582,7 +901,10 @@ async function handleReorderTasks(webview: vscode.Webview, stage: string, taskOr
     }
   } catch (error) {
     console.error('Failed to reorder tasks:', error);
+    return;
   }
+
+  await broadcastTasks();
 }
 
 async function handleCopyPrompt(taskId: string) {
@@ -676,6 +998,117 @@ async function handleCopyPrompt(taskId: string) {
 
   await vscode.env.clipboard.writeText(prompt);
   vscode.window.showInformationMessage(`Copied prompt for "${task.title}" (${prompt.length} chars)`);
+}
+
+async function handleCreateTask(webview: vscode.Webview, payload: any) {
+  const created = await createTaskFile({
+    title: payload?.title ?? '',
+    stage: (payload?.stage as Stage) ?? 'chat',
+    phase: payload?.phase,
+    agent: payload?.agent,
+    context: payload?.context,
+    tags: payload?.tags,
+    content: payload?.content,
+  });
+
+  if (!created) return;
+
+  webview.postMessage({ type: 'taskCreated', task: created });
+  await broadcastTasks();
+  await broadcastContextData();
+  await openFileInEditor(created.filePath);
+}
+
+async function handleCreateAgent(webview: vscode.Webview, payload: { name: string; content?: string }) {
+  const vibekanUri = await ensureVibekanRoot();
+  if (!vibekanUri) {
+    vscode.window.showErrorMessage('No .vibekan workspace found. Generate Vibekan first.');
+    return;
+  }
+  const slug = await createAgentFile(vibekanUri, payload.name, payload.content);
+  webview.postMessage({ type: 'agentCreated', agent: slug });
+  await broadcastContextData();
+}
+
+async function handleCreatePhase(webview: vscode.Webview, payload: { name: string; content?: string }) {
+  const vibekanUri = await ensureVibekanRoot();
+  if (!vibekanUri) {
+    vscode.window.showErrorMessage('No .vibekan workspace found. Generate Vibekan first.');
+    return;
+  }
+  const slug = await createPhaseFile(vibekanUri, payload.name, payload.content);
+  webview.postMessage({ type: 'phaseCreated', phase: slug });
+  await broadcastContextData();
+}
+
+async function handleCreateContext(webview: vscode.Webview, payload: { name: string; content?: string }) {
+  const vibekanUri = await ensureVibekanRoot();
+  if (!vibekanUri) {
+    vscode.window.showErrorMessage('No .vibekan workspace found. Generate Vibekan first.');
+    return;
+  }
+  const slug = await createContextFile(vibekanUri, payload.name, payload.content);
+  webview.postMessage({ type: 'contextCreated', context: slug });
+  await broadcastContextData();
+}
+
+async function handleOpenArchitecture() {
+  const vibekanUri = await ensureVibekanRoot();
+  if (!vibekanUri) {
+    vscode.window.showErrorMessage('No .vibekan workspace found. Generate Vibekan first.');
+    return;
+  }
+  const archUri = vscode.Uri.joinPath(vibekanUri, '_context', 'architecture.md');
+  await openFileInEditor(archUri.fsPath);
+}
+
+async function handleDeleteTask(taskId: string) {
+  const tasks = await loadTasksList();
+  if (!tasks) return;
+
+  const target = tasks.find((t) => t.id === taskId);
+  if (!target) return;
+
+  const choice = await vscode.window.showWarningMessage(
+    `Delete task "${target.title}"?`,
+    { modal: true },
+    'Delete'
+  );
+  if (choice !== 'Delete') return;
+
+  try {
+    await vscode.workspace.fs.delete(vscode.Uri.file(target.filePath));
+    await broadcastTasks();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to delete task';
+    vscode.window.showErrorMessage(message);
+  }
+}
+
+async function handleDuplicateTask(webview: vscode.Webview, taskId: string) {
+  const tasks = await loadTasksList();
+  if (!tasks) return;
+  const existing = tasks.find((t) => t.id === taskId);
+  if (!existing) return;
+
+  const content = await readTextIfExists(vscode.Uri.file(existing.filePath));
+  if (!content) return;
+
+  const dupTitle = `${existing.title} Copy`;
+  const created = await createTaskFile({
+    title: dupTitle,
+    stage: existing.stage,
+    phase: existing.phase,
+    agent: existing.agent,
+    context: existing.context,
+    tags: existing.tags,
+    content: existing.userContent ?? '',
+  });
+
+  if (!created) return;
+
+  webview.postMessage({ type: 'taskCreated', task: created });
+  await broadcastTasks();
 }
 
 function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, viewType: 'sidebar' | 'board') {

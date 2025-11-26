@@ -714,6 +714,14 @@ The following items were reviewed and implemented:
 - [x] Open file trigger: **All three methods** (icon button + double-click + Enter key) for maximum flexibility.
 - [x] Navbar collapsibility: **No**, quick create navbar stays visible (~40px tall, frequently used).
 
+**Implementation status (Phase C, initial cut):**
+- [x] Quick create navbar wired to create task/phase/agent/context and open architecture file.
+- [x] Task creation modal with stage/phase/agent/context/tags/content fields and last-used defaults.
+- [x] Tree view in sidebar (Phase → Stage → Tasks) with open/move/duplicate/delete actions.
+- [x] Board task card open-file action (hover icon, double-click, Enter).
+- [ ] Additional command palette entries for create actions.
+- [ ] Telemetry/metrics for creation flows (if desired) — deferred.
+
 **After implementation (human review required):**
 - [ ] Test task creation with all fields populated.
 - [ ] Test task creation with minimal input (title + stage only).
