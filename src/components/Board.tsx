@@ -8,7 +8,9 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCorners,
+  pointerWithin,
+  rectIntersection,
+  CollisionDetection,
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { Copy } from 'lucide-react';
@@ -17,6 +19,32 @@ import { Column } from './Column';
 import { TaskCard } from './TaskCard';
 import { useTasks } from '../hooks/useTasks';
 import { getVsCodeApi } from '../utils/vscode';
+
+// Custom collision detection that prioritizes column droppables when no task is intersected
+const customCollisionDetection: CollisionDetection = (args) => {
+  // First check for intersections with sortable items (tasks)
+  const pointerCollisions = pointerWithin(args);
+
+  if (pointerCollisions.length > 0) {
+    // If pointer is within a task, use that
+    const taskCollision = pointerCollisions.find(c => !STAGES.includes(c.id as Stage));
+    if (taskCollision) {
+      return [taskCollision];
+    }
+  }
+
+  // Check for rectangle intersections with columns
+  const rectCollisions = rectIntersection(args);
+
+  // Prioritize column droppables (stages)
+  const columnCollision = rectCollisions.find(c => STAGES.includes(c.id as Stage));
+  if (columnCollision) {
+    return [columnCollision];
+  }
+
+  // Fallback to any collision
+  return rectCollisions.length > 0 ? rectCollisions : pointerCollisions;
+};
 
 const TaskCardOverlay: React.FC<{ task: Task }> = ({ task }) => {
   return (
@@ -285,7 +313,7 @@ export const Board: React.FC = () => {
     <div className="board-container" onKeyDown={handleKeyDown} tabIndex={0}>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={customCollisionDetection}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
