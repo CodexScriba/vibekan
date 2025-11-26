@@ -69,6 +69,10 @@ export const Sidebar: React.FC<SidebarProps> = () => {
     vscode?.postMessage({ command: 'openArchitecture' });
   };
 
+  const handleOpenRoadmap = () => {
+    vscode?.postMessage({ command: 'openRoadmap' });
+  };
+
   const handleNewTask = () => {
     if (!workspaceExists) {
       setStatus({ text: 'Generate Vibekan first', isError: true });
@@ -156,6 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = () => {
         onNewAgent={() => promptAndSend('agent')}
         onNewPhase={() => promptAndSend('phase')}
         onOpenArchitecture={handleOpenArchitecture}
+        onOpenRoadmap={handleOpenRoadmap}
         disabled={!workspaceExists}
       />
 
@@ -179,19 +184,21 @@ export const Sidebar: React.FC<SidebarProps> = () => {
         </div>
       )}
 
-      <button
-        className="vibekan-button"
-        onClick={handleOpenSettings}
-        title="Configure theme and behavior."
-      >
-        <div className="vibekan-button-icon">
-          <Settings size={20} />
-        </div>
-        <div className="vibekan-button-content">
-          <span className="vibekan-button-title">Settings</span>
-          <span className="vibekan-button-subtitle">Extension settings</span>
-        </div>
-      </button>
+      <div className="settings-footer">
+        <button
+          className="vibekan-button"
+          onClick={handleOpenSettings}
+          title="Configure theme and behavior."
+        >
+          <div className="vibekan-button-icon">
+            <Settings size={20} />
+          </div>
+          <div className="vibekan-button-content">
+            <span className="vibekan-button-title">Settings</span>
+            <span className="vibekan-button-subtitle">Extension settings</span>
+          </div>
+        </button>
+      </div>
 
       <TaskModal
         open={showTaskModal}

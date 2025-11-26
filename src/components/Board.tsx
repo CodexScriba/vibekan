@@ -54,6 +54,7 @@ export const Board: React.FC = () => {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | undefined>();
   const originalStageRef = useRef<Stage | null>(null);
+  const lastOverIdRef = useRef<string | null>(null);
   const vscode = getVsCodeApi();
 
   const sensors = useSensors(
@@ -85,6 +86,7 @@ export const Board: React.FC = () => {
 
     const activeId = active.id as string;
     const overId = over.id as string;
+    lastOverIdRef.current = overId;
 
     const activeTask = tasks.find((t) => t.id === activeId);
     if (!activeTask) return;
@@ -111,11 +113,14 @@ export const Board: React.FC = () => {
     const fromStage = originalStageRef.current;
     setActiveTask(null);
     originalStageRef.current = null;
+    const fallbackOverId = lastOverIdRef.current;
+    lastOverIdRef.current = null;
 
     const activeId = active.id as string;
+    const resolvedOverId = (over?.id as string | undefined) ?? fallbackOverId;
 
     // Drag cancelled (dropped outside any droppable) - restore original stage
-    if (!over || !fromStage) {
+    if (!resolvedOverId || !fromStage) {
       if (fromStage) {
         setTasks((prev) =>
           prev.map((t) => (t.id === activeId ? { ...t, stage: fromStage } : t))
@@ -123,8 +128,7 @@ export const Board: React.FC = () => {
       }
       return;
     }
-
-    const overId = over.id as string;
+    const overId = resolvedOverId;
 
     const activeTaskCurrent = tasks.find((t) => t.id === activeId);
     if (!activeTaskCurrent) return;

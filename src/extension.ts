@@ -128,6 +128,9 @@ export function activate(context: vscode.ExtensionContext) {
           case 'openTaskFile':
             await openFileInEditor(message.filePath);
             break;
+          case 'openRoadmap':
+            await handleOpenRoadmap();
+            break;
         }
       },
       undefined,
@@ -199,6 +202,9 @@ class VibekanSidebarProvider implements vscode.WebviewViewProvider {
             break;
           case 'openTaskFile':
             await openFileInEditor(data.filePath);
+            break;
+          case 'openRoadmap':
+            await handleOpenRoadmap();
             break;
           case 'moveTask':
             await handleMoveTask(
@@ -1001,22 +1007,27 @@ async function handleCopyPrompt(taskId: string) {
 }
 
 async function handleCreateTask(webview: vscode.Webview, payload: any) {
-  const created = await createTaskFile({
-    title: payload?.title ?? '',
-    stage: (payload?.stage as Stage) ?? 'chat',
-    phase: payload?.phase,
-    agent: payload?.agent,
-    context: payload?.context,
-    tags: payload?.tags,
-    content: payload?.content,
-  });
+  try {
+    const created = await createTaskFile({
+      title: payload?.title ?? '',
+      stage: (payload?.stage as Stage) ?? 'chat',
+      phase: payload?.phase,
+      agent: payload?.agent,
+      context: payload?.context,
+      tags: payload?.tags,
+      content: payload?.content,
+    });
 
-  if (!created) return;
+    if (!created) return;
 
-  webview.postMessage({ type: 'taskCreated', task: created });
-  await broadcastTasks();
-  await broadcastContextData();
-  await openFileInEditor(created.filePath);
+    webview.postMessage({ type: 'taskCreated', task: created });
+    await broadcastTasks();
+    await broadcastContextData();
+    await openFileInEditor(created.filePath);
+  } catch (err) {
+    console.error('Failed to create task:', err);
+    vscode.window.showErrorMessage(`Failed to create task: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 async function handleCreateAgent(webview: vscode.Webview, payload: { name: string; content?: string }) {
@@ -1060,6 +1071,26 @@ async function handleOpenArchitecture() {
   }
   const archUri = vscode.Uri.joinPath(vibekanUri, '_context', 'architecture.md');
   await openFileInEditor(archUri.fsPath);
+}
+
+async function handleOpenRoadmap() {
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders) {
+    vscode.window.showErrorMessage('No workspace open');
+    return;
+  }
+
+  const rootUri = workspaceFolders[0].uri;
+  const roadmapUri = vscode.Uri.joinPath(rootUri, 'roadmap.md');
+
+  try {
+    await vscode.workspace.fs.stat(roadmapUri);
+  } catch {
+    const template = '# Roadmap\n\nOutline milestones, priorities, and target dates here.\n';
+    await vscode.workspace.fs.writeFile(roadmapUri, Buffer.from(template, 'utf8'));
+  }
+
+  await openFileInEditor(roadmapUri.fsPath);
 }
 
 async function handleDeleteTask(taskId: string) {

@@ -72,6 +72,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSubmit, c
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setError('');
 
     const titleValue = title.trim();
