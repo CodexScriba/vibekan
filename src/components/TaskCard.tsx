@@ -1,17 +1,29 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Copy, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { Task } from '../types/task';
+import { CopyMode } from '../types/copy';
 import { getVsCodeApi } from '../utils/vscode';
+import { CopyDropdown } from './CopyDropdown';
 
 interface TaskCardProps {
   task: Task;
   isSelected?: boolean;
   onSelect?: (taskId: string) => void;
+  defaultCopyMode: CopyMode;
+  forceDropdownOpen?: boolean;
+  onDropdownClose?: () => void;
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, isSelected, onSelect }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({
+  task,
+  isSelected,
+  onSelect,
+  defaultCopyMode,
+  forceDropdownOpen,
+  onDropdownClose,
+}) => {
   const vscode = getVsCodeApi();
   
   const {
@@ -29,13 +41,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isSelected, onSelect }
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const handleCopyPrompt = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (vscode) {
-      vscode.postMessage({ command: 'copyPrompt', taskId: task.id });
-    }
-  };
-
   const handleOpenFile = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (vscode) {
@@ -48,9 +53,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isSelected, onSelect }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'c' || e.key === 'C') {
-      handleCopyPrompt(e as unknown as React.MouseEvent);
-    }
     if (e.key === 'Enter') {
       handleOpenFile();
     }
@@ -72,14 +74,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isSelected, onSelect }
     >
       <div className="task-card-header">
         <span className="task-card-title">{task.title}</span>
-        <button
-          className="task-card-copy"
-          onClick={handleCopyPrompt}
-          title="Copy prompt (C)"
-          aria-label="Copy task prompt"
-        >
-          <Copy size={14} />
-        </button>
         <button
           className="task-card-open"
           onClick={handleOpenFile}
@@ -111,6 +105,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isSelected, onSelect }
           <span className="task-card-agent-value">{task.agent}</span>
         </div>
       )}
+
+      <div className="task-card-footer">
+        <CopyDropdown
+          taskId={task.id}
+          defaultMode={defaultCopyMode}
+          forceOpen={forceDropdownOpen}
+          onClose={onDropdownClose}
+        />
+      </div>
     </div>
   );
 };

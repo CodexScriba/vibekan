@@ -297,7 +297,7 @@ These are summarized here for continuity; details can be fleshed out phase‑by�
 
 **Style Note:** Successfully reused glassmorphism CSS variables and components from Phase A. The board webview inherits the same visual language as the sidebar for consistency.
 
-### Phase C — Tree View & Quick Add Task (IN PROGRESS)
+### Phase C — Tree View & Quick Add Task ✅ COMPLETED
 
 **Goals:**
 1. Navbar/toolbar with multiple create actions (tasks, agents, phases, contexts).
@@ -309,14 +309,716 @@ These are summarized here for continuity; details can be fleshed out phase‑by�
 
 **Detailed specs:** See section 8 below.
 
-### Phase D — Copy‑With‑Context UX
+### Phase D — Copy‑With‑Context UX (XML-Structured Prompts)
 
-- Per‑card "Copy Prompt" button with modes:
-  - Full context (task + architecture + phase + stage + agent).
-  - Task‑only.
-  - Context‑only.
-- Non‑blocking toast: "Copied N characters to clipboard."
-- Command palette shortcuts for copy modes.
+**Goal:** Enable one-click copying of perfectly structured prompts for AI agents using XML tags for maximum clarity and parseability.
+
+**Core principle:** Follow [Claude's XML tag best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/use-xml-tags) for structured, unambiguous prompts that work optimally with all AI models.
+
+---
+
+#### D.1 Copy Modes
+
+Three copy modes available via dropdown menu on each task card:
+
+1. **Full Context** (default) — Complete prompt with all available context
+2. **Task Only** — Just the task metadata and user notes
+3. **Context Only** — All context (architecture, phase, stage, agent) without task details
+
+**UI Placement:**
+- Primary "Copy Prompt" button in card footer (existing position)
+- Click opens small dropdown menu with three options
+- Keyboard shortcut: `C` (copies using default mode from settings)
+- Command palette: `Vibekan: Copy Task (Full Context)`, `Vibekan: Copy Task Only`, `Vibekan: Copy Context Only`
+
+---
+
+#### D.2 XML Template — Full Context Mode
+
+This is the default and most comprehensive mode, optimized for AI agent handoffs.
+
+```xml
+<vibekan_task>
+  <metadata>
+    <id>task-implement-navbar</id>
+    <title>Implement navbar component</title>
+    <stage>code</stage>
+    <phase>navbar-phase1-ui-ux</phase>
+    <agent>coder</agent>
+    <tags>frontend, react, ui</tags>
+    <created>2025-11-22T08:00:00Z</created>
+    <updated>2025-11-22T10:30:00Z</updated>
+  </metadata>
+
+  <stage_context name="code">
+## 🎯 Stage: Code
+
+You are working in the **Code** stage. Your focus is on implementation.
+
+**Stage objectives:**
+- Write clean, maintainable code following project conventions
+- Implement features according to the plan from previous stages
+- Ensure code is testable and well-documented
+- Follow the architecture guidelines provided
+
+**Next stage:** After completing implementation, move to **Audit** for review.
+  </stage_context>
+
+  <phase_context name="navbar-phase1-ui-ux">
+## 📦 Phase: Navbar Phase 1 - UI/UX
+
+**Phase goal:** Create a responsive, accessible navigation bar with glassmorphism styling.
+
+**Key requirements:**
+- Mobile-first responsive design
+- Glassmorphism aesthetic matching project design system
+- Accessibility: ARIA labels, keyboard navigation
+- Performance: Lazy-load icons, optimize animations
+
+**Constraints:**
+- Must work in all modern browsers (Chrome, Firefox, Safari, Edge)
+- No external UI libraries (use custom components only)
+- Follow VSCode webview CSP restrictions
+
+**Success criteria:**
+- Navbar renders correctly at all viewport sizes
+- All interactive elements are keyboard accessible
+- Smooth animations without jank (60fps)
+  </phase_context>
+
+  <agent_instructions name="coder">
+## 🤖 Agent: Coder
+
+**Your role:** You are a senior software engineer specializing in React and TypeScript.
+
+**Your capabilities:**
+- Write production-quality React components with TypeScript
+- Implement responsive CSS with modern techniques (Grid, Flexbox, CSS Variables)
+- Follow accessibility best practices (WCAG 2.1 AA)
+- Write clean, self-documenting code with minimal comments
+
+**Your constraints:**
+- Always use TypeScript with strict mode
+- Prefer functional components with hooks over class components
+- Use semantic HTML elements
+- Avoid inline styles; use CSS modules or styled-components
+
+**Your output format:**
+1. Brief explanation of your approach
+2. Complete, runnable code
+3. Any assumptions or decisions you made
+4. Suggestions for testing
+  </agent_instructions>
+
+  <custom_context name="logo-component-plan">
+## 📄 Custom Context: Logo Component Plan
+
+[Content from .vibekan/_context/custom/logo-component-plan.md]
+
+This section contains project-specific context attached to this task.
+  </custom_context>
+
+  <architecture>
+## 🌍 Project Architecture
+
+[Content from .vibekan/_context/architecture.md]
+
+**Key architectural decisions:**
+- Extension structure: VSCode extension with webview-based UI
+- State management: Message passing between extension host and webview
+- Styling: CSS variables + glassmorphism design system
+- File-based persistence: All data stored in .vibekan/ folder
+  </architecture>
+
+  <user_notes>
+## 📝 User Notes
+
+[User's freeform content from the task file after <!-- USER CONTENT --> marker]
+
+Implementation notes, checklists, code snippets, or any other user-written content.
+  </user_notes>
+
+  <instructions>
+## 🎯 Your Task
+
+Using all the context provided above, complete the task described in the metadata section.
+
+**Remember to:**
+1. Follow the stage objectives and phase requirements
+2. Adhere to your agent role and capabilities
+3. Respect the architectural guidelines
+4. Consider the custom context and user notes
+
+**Output format:**
+Provide your response in a clear, structured format. If writing code, include complete, runnable implementations.
+  </instructions>
+</vibekan_task>
+```
+
+**Key design decisions:**
+- **Consistent tag naming:** All tags use lowercase with underscores (e.g., `stage_context`, `user_notes`)
+- **Nested structure:** Related information grouped hierarchically
+- **Named attributes:** Context sections include `name` attribute for clarity (e.g., `<stage_context name="code">`)
+- **Clear sections:** Each major section has a markdown header for readability
+- **Explicit instructions:** Final `<instructions>` section tells the AI what to do
+
+---
+
+#### D.3 XML Template — Task Only Mode
+
+Minimal prompt with just task information, useful for quick AI queries without full context.
+
+```xml
+<task>
+  <metadata>
+    <id>task-implement-navbar</id>
+    <title>Implement navbar component</title>
+    <stage>code</stage>
+    <phase>navbar-phase1-ui-ux</phase>
+    <agent>coder</agent>
+    <tags>frontend, react, ui</tags>
+    <created>2025-11-22T08:00:00Z</created>
+    <updated>2025-11-22T10:30:00Z</updated>
+  </metadata>
+
+  <description>
+[User's freeform content from the task file after <!-- USER CONTENT --> marker]
+  </description>
+</task>
+```
+
+**Use cases:**
+- Quick status updates
+- Asking clarifying questions about a specific task
+- Generating task summaries or reports
+
+---
+
+#### D.4 XML Template — Context Only Mode
+
+All context without task-specific details, useful for onboarding new agents or refreshing context.
+
+```xml
+<project_context>
+  <architecture>
+## 🌍 Project Architecture
+
+[Content from .vibekan/_context/architecture.md]
+  </architecture>
+
+  <stages>
+    <stage name="chat">
+## 🎯 Stage: Chat
+[Content from .vibekan/_context/stages/chat.md]
+    </stage>
+    
+    <stage name="queue">
+## 🎯 Stage: Queue
+[Content from .vibekan/_context/stages/queue.md]
+    </stage>
+    
+    <!-- ... other stages ... -->
+  </stages>
+
+  <phases>
+    <phase name="navbar-phase1-ui-ux">
+## 📦 Phase: Navbar Phase 1 - UI/UX
+[Content from .vibekan/_context/phases/navbar-phase1-ui-ux.md]
+    </phase>
+    
+    <!-- ... other phases ... -->
+  </phases>
+
+  <agents>
+    <agent name="coder">
+## 🤖 Agent: Coder
+[Content from .vibekan/_context/agents/coder.md]
+    </agent>
+    
+    <!-- ... other agents ... -->
+  </agents>
+</project_context>
+```
+
+**Use cases:**
+- Onboarding a new AI agent to the project
+- Refreshing context in a long conversation
+- Sharing project structure with collaborators
+
+---
+
+#### D.5 UI Components & Interactions
+
+**Copy button with dropdown:**
+```
+┌─────────────────────────────┐
+│  Task Card                  │
+│  ┌───────────────────────┐  │
+│  │ Implement navbar      │  │
+│  │ #frontend #react      │  │
+│  │                       │  │
+│  │ [📋 Copy Prompt ▼]   │  │ ← Click opens dropdown
+│  └───────────────────────┘  │
+└─────────────────────────────┘
+
+Dropdown menu (appears on click):
+┌─────────────────────────────┐
+│ ✓ Full Context (default)    │
+│   Task Only                 │
+│   Context Only              │
+└─────────────────────────────┘
+```
+
+**Visual style:**
+- Dropdown: Small glass panel with 3 options
+- Active mode: Checkmark indicator
+- Hover: Subtle glow on option
+- Animation: Smooth fade-in (150ms)
+
+**Keyboard shortcuts:**
+- `C` — Copy using default mode (configurable in settings)
+- `Ctrl/Cmd+Shift+C` — Open copy mode dropdown
+- `1`, `2`, `3` — Select mode when dropdown is open
+
+**Toast notification:**
+- Position: Bottom-right corner of board
+- Duration: 3 seconds
+- Content: "Copied 2,847 characters (Full Context) ✓"
+- Style: Glass panel with success accent color
+- Dismissible: Click or Esc to dismiss early
+
+---
+
+#### D.6 Settings & Configuration
+
+**New VSCode settings:**
+
+```json
+{
+  "vibekan.copyMode.default": "full", // "full" | "task" | "context"
+  "vibekan.copyMode.includeTimestamps": true,
+  "vibekan.copyMode.includeArchitecture": true,
+  "vibekan.copyMode.xmlFormatting": "pretty", // "pretty" | "compact"
+  "vibekan.copyMode.showToast": true,
+  "vibekan.copyMode.toastDuration": 3000
+}
+```
+
+**Settings UI:**
+- Accessible via "Settings" button in sidebar
+- Section: "Copy & Context"
+- Live preview: Shows sample XML output as settings change
+
+---
+
+#### D.7 Implementation Checklist
+
+**Backend (Extension Host):**
+- [ ] Create `PromptBuilder` class to assemble XML templates
+- [ ] Implement file reading for context files (architecture, phases, agents, custom)
+- [ ] Add clipboard API integration (`vscode.env.clipboard.writeText`)
+- [ ] Handle missing context files gracefully (skip section if file doesn't exist)
+- [ ] Add settings integration for copy mode preferences
+- [ ] Implement character count for toast notification
+
+**Frontend (Webview):**
+- [ ] Add dropdown component to task cards (glassmorphic styling)
+- [ ] Implement copy mode selection UI
+- [ ] Add toast notification component
+- [ ] Wire up keyboard shortcuts (C, Ctrl/Cmd+Shift+C, 1-3)
+- [ ] Add command palette entries for copy modes
+- [ ] Implement copy mode indicator (checkmark on active mode)
+
+**Testing:**
+- [ ] Test all three copy modes with various task configurations
+- [ ] Test with missing context files (phase, agent, custom context)
+- [ ] Test with empty user notes section
+- [ ] Verify XML structure is valid and well-formed
+- [ ] Test clipboard integration on Windows, macOS, Linux
+- [ ] Test keyboard shortcuts don't conflict with VSCode defaults
+- [ ] Verify toast notifications appear and dismiss correctly
+- [ ] Test with very large context (10,000+ characters)
+
+**Documentation:**
+- [ ] Update README with copy-with-context workflow examples
+- [ ] Add XML template reference to docs
+- [ ] Document keyboard shortcuts
+- [ ] Create video demo of copy workflow
+
+---
+
+#### D.8 Future Enhancements (Post-v1)
+
+- **Smart context selection:** AI-powered context filtering (only include relevant phases/agents)
+- **Custom templates:** User-defined XML templates with variable substitution
+- **Copy history:** Recent copies accessible via command palette
+- **Diff mode:** Copy only what changed since last copy
+- **Multi-task copy:** Batch copy multiple tasks as a single prompt
+- **Export formats:** JSON, YAML, plain text alternatives to XML
+
+---
+
+#### D.9 Optimal Context File Templates
+
+To ensure the XML prompts are maximally effective, context files should follow these templates:
+
+##### Stage Context Template (`_context/stages/code.md`)
+
+```markdown
+# Stage: Code
+
+You are working in the **Code** stage. Your focus is on implementation.
+
+## Stage Objectives
+
+- Write clean, maintainable code following project conventions
+- Implement features according to the plan from previous stages
+- Ensure code is testable and well-documented
+- Follow the architecture guidelines provided
+- Write code that passes linting and type checking
+
+## Stage Guidelines
+
+**Before you start:**
+- Review the task description and requirements carefully
+- Check the phase context for specific constraints
+- Verify you understand the architecture
+
+**While coding:**
+- Follow the project's coding style and conventions
+- Write self-documenting code with clear variable/function names
+- Add comments only for complex logic or non-obvious decisions
+- Ensure your code is modular and reusable
+
+**Before moving to next stage:**
+- Test your implementation locally
+- Verify all requirements are met
+- Update documentation if needed
+- Commit your changes with a clear commit message
+
+## Next Stage
+
+After completing implementation, move to **Audit** for code review and quality checks.
+```
+
+##### Phase Context Template (`_context/phases/navbar-phase1-ui-ux.md`)
+
+```markdown
+# Phase: Navbar Phase 1 - UI/UX
+
+## Phase Goal
+
+Create a responsive, accessible navigation bar with glassmorphism styling that serves as the primary navigation for the Vibekan extension.
+
+## Key Requirements
+
+### Functional Requirements
+- Display navigation links to all major sections
+- Support keyboard navigation (Tab, Arrow keys, Enter)
+- Highlight active section
+- Collapse to hamburger menu on mobile/narrow viewports
+
+### Design Requirements
+- Glassmorphism aesthetic matching project design system
+- Smooth transitions and micro-animations
+- Dark mode optimized (primary theme)
+- Consistent with existing UI components
+
+### Technical Requirements
+- React + TypeScript implementation
+- CSS variables for theming
+- No external UI libraries
+- VSCode webview CSP compliant
+
+## Constraints
+
+- Must work in all modern browsers (Chrome 90+, Firefox 88+, Safari 14+, Edge 90+)
+- No external UI libraries (use custom components only)
+- Follow VSCode webview CSP restrictions (no inline scripts/styles)
+- Performance: First paint < 100ms, smooth 60fps animations
+- Accessibility: WCAG 2.1 AA compliance
+
+## Success Criteria
+
+- [ ] Navbar renders correctly at all viewport sizes (320px - 1920px+)
+- [ ] All interactive elements are keyboard accessible
+- [ ] Smooth animations without jank (60fps)
+- [ ] Passes automated accessibility tests (axe-core)
+- [ ] Visual design approved by design review
+- [ ] Code passes TypeScript strict mode and ESLint
+
+## Related Tasks
+
+- `task-navbar-design-mockup` (Plan stage)
+- `task-navbar-component-implementation` (Code stage)
+- `task-navbar-accessibility-audit` (Audit stage)
+
+## Notes
+
+This is Phase 1 focusing on UI/UX. Phase 2 will add advanced features like search integration and command palette.
+```
+
+##### Agent Context Template (`_context/agents/coder.md`)
+
+```markdown
+# Agent: Coder
+
+## Your Role
+
+You are a **senior software engineer** specializing in React, TypeScript, and modern web development. You write production-quality code that is clean, maintainable, and follows best practices.
+
+## Your Capabilities
+
+### Technical Skills
+- Expert in React (functional components, hooks, context, performance optimization)
+- Expert in TypeScript (strict mode, advanced types, generics)
+- Proficient in modern CSS (Grid, Flexbox, CSS Variables, animations)
+- Strong understanding of accessibility (WCAG 2.1, ARIA, semantic HTML)
+- Experience with VSCode extension development and webview APIs
+
+### Code Quality
+- Write self-documenting code with clear naming
+- Follow SOLID principles and design patterns
+- Implement proper error handling and edge cases
+- Consider performance implications (memoization, lazy loading, code splitting)
+- Write testable code with clear separation of concerns
+
+### Communication
+- Explain your approach before diving into implementation
+- Document non-obvious decisions and trade-offs
+- Suggest improvements or alternatives when appropriate
+- Ask clarifying questions if requirements are ambiguous
+
+## Your Constraints
+
+### Code Style
+- Always use TypeScript with strict mode enabled
+- Prefer functional components with hooks over class components
+- Use semantic HTML elements (nav, main, section, article, etc.)
+- Avoid inline styles; use CSS modules or styled-components
+- Follow the project's ESLint and Prettier configurations
+
+### Architecture
+- Follow the existing project structure and patterns
+- Don't introduce new dependencies without justification
+- Respect VSCode webview security constraints (CSP)
+- Use message passing for extension host ↔ webview communication
+
+### Performance
+- Minimize re-renders (React.memo, useMemo, useCallback)
+- Lazy-load components and assets when appropriate
+- Optimize bundle size (tree-shaking, code splitting)
+- Avoid blocking the main thread
+
+## Your Output Format
+
+When responding to a task, structure your response as follows:
+
+1. **Approach** — Brief explanation of your implementation strategy
+2. **Code** — Complete, runnable implementation with proper imports and types
+3. **Decisions** — Any assumptions, trade-offs, or design decisions you made
+4. **Testing** — Suggestions for how to test this implementation
+5. **Next Steps** — Optional suggestions for improvements or follow-up tasks
+
+## Example Response Structure
+
+```
+## Approach
+I'll implement the navbar as a functional React component using TypeScript...
+
+## Implementation
+
+\`\`\`typescript
+// Navbar.tsx
+import React from 'react';
+import './Navbar.css';
+
+interface NavbarProps {
+  // ...
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ ... }) => {
+  // ...
+};
+\`\`\`
+
+## Decisions Made
+- Used CSS Grid for layout because...
+- Implemented keyboard navigation with...
+
+## Testing Suggestions
+- Test keyboard navigation (Tab, Arrow keys, Enter)
+- Test responsive behavior at 320px, 768px, 1024px
+- Run axe-core accessibility tests
+
+## Next Steps
+Consider adding...
+```
+
+## Notes
+
+You work closely with the **Planner** (who defines requirements) and **Auditor** (who reviews your code). Always consider their feedback and iterate based on their input.
+```
+
+##### Architecture Context Template (`_context/architecture.md`)
+
+```markdown
+# Vibekan Architecture
+
+## Project Overview
+
+**Vibekan** is a VSCode extension that provides a file-based Kanban board and context manager for solo developers orchestrating multiple AI agents.
+
+**Core principle:** The `.vibekan/` folder is the single source of truth. The extension provides a beautiful, glassmorphic UI over these files.
+
+## Technology Stack
+
+### Extension Host (Node.js)
+- **Language:** TypeScript (strict mode)
+- **Framework:** VSCode Extension API
+- **Key APIs:** FileSystem, Webview, TreeView, Commands, Configuration
+
+### Webview UI (Browser)
+- **Language:** TypeScript + React
+- **Bundler:** Vite
+- **Styling:** CSS Modules + CSS Variables
+- **State:** React hooks + message passing
+
+### Build & Development
+- **Package Manager:** npm
+- **Bundler:** esbuild (extension), Vite (webview)
+- **Linting:** ESLint + Prettier
+- **Type Checking:** TypeScript strict mode
+
+## Project Structure
+
+```
+vibekan/
+├── src/
+│   ├── extension.ts          # Extension host entry point
+│   ├── webview/               # React webview UI
+│   │   ├── App.tsx            # Main board component
+│   │   ├── Sidebar.tsx        # Sidebar launcher component
+│   │   ├── components/        # Reusable UI components
+│   │   └── index.css          # Global styles + design system
+│   └── types.ts               # Shared TypeScript types
+├── .vibekan/                  # Example workspace (for testing)
+│   ├── tasks/                 # Task files by stage
+│   └── _context/              # Context files
+├── package.json               # Extension manifest + dependencies
+└── tsconfig.json              # TypeScript configuration
+```
+
+## Key Architectural Decisions
+
+### 1. File-Based Persistence
+- **Decision:** All data stored as markdown files in `.vibekan/` folder
+- **Rationale:** Git-friendly, human-readable, no database needed, works offline
+- **Trade-off:** Slower than in-memory DB, but acceptable for <1000 tasks
+
+### 2. Webview UI Architecture
+- **Decision:** Use React + Vite for webview, message passing for communication
+- **Rationale:** Modern DX, fast HMR, component reusability
+- **Trade-off:** Larger bundle size, but VSCode webviews are isolated
+
+### 3. Glassmorphism Design System
+- **Decision:** CSS variables + utility classes for consistent styling
+- **Rationale:** Easy theming, no CSS-in-JS overhead, maintainable
+- **Trade-off:** Requires discipline to avoid ad-hoc styles
+
+### 4. Task Frontmatter Schema
+- **Decision:** YAML frontmatter with strict schema (id, title, stage, phase, agent, etc.)
+- **Rationale:** Structured metadata + freeform content, easy to parse
+- **Trade-off:** Users must follow schema, but validation helps
+
+### 5. XML-Structured Prompts
+- **Decision:** Use XML tags for copy-with-context feature (Phase D)
+- **Rationale:** Claude best practice, clear structure, easy to parse
+- **Trade-off:** More verbose than plain text, but much more effective
+
+## Data Flow
+
+### Task Creation Flow
+1. User clicks "New Task" in sidebar
+2. Webview shows modal, user fills form
+3. Webview sends `createTask` message to extension host
+4. Extension host creates `.vibekan/tasks/<stage>/<id>.md` file
+5. Extension host sends `taskCreated` message back to webview
+6. Webview updates UI and opens file in editor
+
+### Task Move Flow (Drag & Drop)
+1. User drags task card to different column
+2. Webview updates UI optimistically
+3. Webview sends `moveTask` message to extension host
+4. Extension host moves file to new stage folder, updates frontmatter
+5. Extension host sends confirmation back to webview
+6. If error, webview reverts UI change
+
+### Copy-With-Context Flow
+1. User clicks "Copy Prompt" on task card
+2. Webview sends `copyPrompt` message with task ID and mode
+3. Extension host reads task file + all context files
+4. Extension host assembles XML prompt using PromptBuilder
+5. Extension host copies to clipboard via `vscode.env.clipboard.writeText`
+6. Extension host sends success message with character count
+7. Webview shows toast notification
+
+## Design System
+
+### Colors (CSS Variables)
+```css
+--glass-bg: rgba(15, 20, 40, 0.7);
+--glass-border: rgba(255, 255, 255, 0.1);
+--accent-cyan: #3BF5FF;
+--accent-magenta: #FF3BCE;
+--accent-violet: #8B5CFF;
+--text-primary: #F5F7FF;
+--text-secondary: rgba(245, 247, 255, 0.7);
+```
+
+### Typography
+- **Font:** 'Segoe UI', system-ui, sans-serif
+- **Sizes:** 12px (small), 14px (body), 16px (heading), 20px (title)
+- **Weights:** 400 (normal), 500 (medium), 600 (semibold)
+
+### Spacing Scale
+- 4px, 8px, 12px, 16px, 24px, 32px, 48px
+
+### Border Radius
+- Small: 8px
+- Medium: 12px
+- Large: 16px
+- Pill: 9999px
+
+## Performance Considerations
+
+- **Task limit:** Optimized for <1000 tasks (acceptable performance)
+- **Virtualization:** Not needed for v1 (add if >500 tasks become common)
+- **Debouncing:** File writes debounced by 300ms to avoid excessive I/O
+- **Memoization:** React.memo on task cards to prevent unnecessary re-renders
+
+## Security Considerations
+
+- **CSP:** Strict Content Security Policy for webviews (no inline scripts/styles)
+- **File access:** Extension only reads/writes within workspace `.vibekan/` folder
+- **No external APIs:** No network requests, all data stays local
+
+## Testing Strategy
+
+- **Unit tests:** Core logic (frontmatter parsing, file operations)
+- **Integration tests:** Extension host ↔ webview message passing
+- **Manual testing:** UI interactions, drag & drop, keyboard navigation
+- **Accessibility:** axe-core automated tests + manual screen reader testing
+
+## Future Considerations
+
+- **Multi-workspace support:** Handle multiple `.vibekan/` folders in a workspace
+- **Conflict resolution:** Detect and merge concurrent file edits
+- **Performance:** Add virtualization if task count exceeds 500
+- **Collaboration:** Explore real-time sync (post-v1)
+```
+
+---
 
 ### Phase E — Polish & Themes
 
@@ -696,7 +1398,7 @@ The following items were reviewed and implemented:
 - [x] Cross-column drop positioning with in-memory list updates.
 - [x] Drag-cancel restores original stage in UI.
 
-### Phase C Review (IN PROGRESS)
+### Phase C Review ✅ COMPLETED
 
 **Design decisions finalized:**
 - [x] Task creation form UI: Modal (glassmorphic floating panel).
@@ -722,16 +1424,24 @@ The following items were reviewed and implemented:
 - [ ] Additional command palette entries for create actions.
 - [ ] Telemetry/metrics for creation flows (if desired) — deferred.
 
+**Bug fixes completed (Phase C polish):**
+- [x] Sidebar now uses 100% vertical height for maximum real estate utilization.
+- [x] Settings footer properly positioned at bottom without gradient obstruction.
+- [x] Drag-and-drop fixed for all stages (Queue, Completed) with custom collision detection algorithm.
+- [x] Dropdown visibility fixed in sidebar file tree (solid background colors for proper contrast).
+- [x] Task modal positioning fixed with increased top padding to prevent title cutoff.
+- [x] Input field padding fixed in task modal (box-sizing: border-box for consistent layout).
+
 **After implementation (human review required):**
-- [ ] Test task creation with all fields populated.
-- [ ] Test task creation with minimal input (title + stage only).
-- [ ] Verify dropdowns update dynamically when new agents/phases/contexts are created.
-- [ ] Test tree view with 0 tasks, 1 task, and 100+ tasks.
-- [ ] Verify tree view collapse/expand state persists across VSCode restarts.
-- [ ] Test all quick create actions in sequence (task → agent → phase → context).
-- [ ] Verify "Open File" action works from task cards in board.
-- [ ] Test right-click context menu on all tree items (phase, stage, task).
-- [ ] Keyboard navigation: Tab, Enter, Esc in modal; Enter on focused card in board.
+- [x] Test task creation with all fields populated.
+- [x] Test task creation with minimal input (title + stage only).
+- [x] Verify dropdowns update dynamically when new agents/phases/contexts are created.
+- [x] Test tree view with 0 tasks, 1 task, and 100+ tasks.
+- [x] Verify tree view collapse/expand state persists across VSCode restarts.
+- [x] Test all quick create actions in sequence (task → agent → phase → context).
+- [x] Verify "Open File" action works from task cards in board.
+- [x] Test right-click context menu on all tree items (phase, stage, task).
+- [x] Keyboard navigation: Tab, Enter, Esc in modal; Enter on focused card in board.
 
 **Next steps:**
 - Begin implementation of quick create navbar in sidebar webview.

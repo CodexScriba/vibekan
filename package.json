@@ -35,6 +35,18 @@
       {
         "command": "vibekan.openBoard",
         "title": "Open Vibekan Board"
+      },
+      {
+        "command": "vibekan.copyTaskFullContext",
+        "title": "Vibekan: Copy Task (Full Context)"
+      },
+      {
+        "command": "vibekan.copyTaskOnly",
+        "title": "Vibekan: Copy Task Only"
+      },
+      {
+        "command": "vibekan.copyContextOnly",
+        "title": "Vibekan: Copy Context Only"
       }
     ],
     "viewsContainers": {
@@ -54,6 +66,50 @@
           "type": "webview"
         }
       ]
+    },
+    "configuration": {
+      "title": "Vibekan",
+      "properties": {
+        "vibekan.copyMode.default": {
+          "type": "string",
+          "enum": [
+            "full",
+            "task",
+            "context"
+          ],
+          "default": "full",
+          "description": "Default copy mode for task prompts."
+        },
+        "vibekan.copyMode.includeTimestamps": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include created/updated timestamps in metadata."
+        },
+        "vibekan.copyMode.includeArchitecture": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include architecture.md content when building prompts."
+        },
+        "vibekan.copyMode.xmlFormatting": {
+          "type": "string",
+          "enum": [
+            "pretty",
+            "compact"
+          ],
+          "default": "pretty",
+          "description": "XML formatting style for generated prompts."
+        },
+        "vibekan.copyMode.showToast": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show in-webview toast after copying."
+        },
+        "vibekan.copyMode.toastDuration": {
+          "type": "number",
+          "default": 3000,
+          "description": "Toast duration in milliseconds."
+        }
+      }
     }
   },
   "dependencies": {

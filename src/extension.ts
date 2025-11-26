@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { Task, STAGES, Stage } from './types/task';
+import { CopyMode, CopySettings } from './types/copy';
+import { PromptBuilder } from './utils/promptBuilder';
 
 interface ParsedFrontmatter {
   [key: string]: string | string[] | undefined;
@@ -65,6 +67,65 @@ async function loadContextData(): Promise<ContextData> {
   return { phases, agents, contexts };
 }
 
+function getCopySettings(): CopySettings {
+  const config = vscode.workspace.getConfiguration('vibekan');
+  const defaultMode = config.get<string>('copyMode.default', 'full');
+  const xmlFormatting = config.get<string>('copyMode.xmlFormatting', 'pretty');
+
+  return {
+    defaultMode: resolveCopyMode(defaultMode, 'full'),
+    includeTimestamps: config.get<boolean>('copyMode.includeTimestamps', true),
+    includeArchitecture: config.get<boolean>('copyMode.includeArchitecture', true),
+    xmlFormatting: xmlFormatting === 'compact' ? 'compact' : 'pretty',
+    showToast: config.get<boolean>('copyMode.showToast', true),
+    toastDuration: config.get<number>('copyMode.toastDuration', 3000),
+  };
+}
+
+function resolveCopyMode(mode: string | undefined, fallback: CopyMode): CopyMode {
+  if (mode === 'task' || mode === 'context' || mode === 'full') {
+    return mode;
+  }
+  return fallback;
+}
+
+async function sendCopySettings(webview: vscode.Webview) {
+  const settings = getCopySettings();
+  webview.postMessage({ type: 'copySettings', settings });
+}
+
+async function broadcastCopySettings() {
+  if (sidebarWebview) {
+    await sendCopySettings(sidebarWebview);
+  }
+  if (boardWebview) {
+    await sendCopySettings(boardWebview);
+  }
+}
+
+async function readContextDirectory(dir: vscode.Uri): Promise<Record<string, string>> {
+  const map: Record<string, string> = {};
+  try {
+    const entries = await vscode.workspace.fs.readDirectory(dir);
+    for (const [name, type] of entries) {
+      if (type === vscode.FileType.File && name.endsWith('.md')) {
+        const content = await readTextIfExists(vscode.Uri.joinPath(dir, name));
+        if (content) {
+          map[name.replace(/\.md$/, '')] = content;
+        }
+      }
+    }
+  } catch {
+    // Directory may not exist; ignore.
+  }
+  return map;
+}
+
+function extractUserNotes(content: string): string {
+  const match = content.match(/<!-- USER CONTENT -->\s*([\s\S]*)/);
+  return match ? match[1].trim() : '';
+}
+
 export function activate(context: vscode.ExtensionContext) {
   // Register the Sidebar View Provider
   const sidebarProvider = new VibekanSidebarProvider(context.extensionUri);
@@ -93,6 +154,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     panel.webview.html = getWebviewContent(panel.webview, context.extensionUri, 'board');
+    sendCopySettings(panel.webview);
 
     // Handle messages from the board
     panel.webview.onDidReceiveMessage(
@@ -120,7 +182,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
             break;
           case 'copyPrompt':
-            await handleCopyPrompt(message.taskId);
+            await handleCopyPrompt(message.taskId, message.mode, panel.webview);
             break;
           case 'reorderTasks':
             await handleReorderTasks(panel.webview, message.stage as Stage, message.taskOrder);
@@ -139,6 +201,26 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   context.subscriptions.push(disposable);
+
+  const copyFullCommand = vscode.commands.registerCommand('vibekan.copyTaskFullContext', async () => {
+    await quickCopyPrompt('full');
+  });
+  const copyTaskOnlyCommand = vscode.commands.registerCommand('vibekan.copyTaskOnly', async () => {
+    await quickCopyPrompt('task');
+  });
+  const copyContextOnlyCommand = vscode.commands.registerCommand('vibekan.copyContextOnly', async () => {
+    await quickCopyPrompt('context');
+  });
+
+  context.subscriptions.push(copyFullCommand, copyTaskOnlyCommand, copyContextOnlyCommand);
+
+  const configListener = vscode.workspace.onDidChangeConfiguration((event) => {
+    if (event.affectsConfiguration('vibekan.copyMode')) {
+      broadcastCopySettings();
+    }
+  });
+
+  context.subscriptions.push(configListener);
 }
 
 export function deactivate() {}
@@ -161,6 +243,7 @@ class VibekanSidebarProvider implements vscode.WebviewViewProvider {
     };
 
     webviewView.webview.html = getWebviewContent(webviewView.webview, this._extensionUri, 'sidebar');
+    sendCopySettings(webviewView.webview);
 
       webviewView.webview.onDidReceiveMessage(async (data) => {
         switch (data.command) {
@@ -205,6 +288,9 @@ class VibekanSidebarProvider implements vscode.WebviewViewProvider {
             break;
           case 'openRoadmap':
             await handleOpenRoadmap();
+            break;
+          case 'copyPrompt':
+            await handleCopyPrompt(data.taskId, data.mode, webviewView.webview);
             break;
           case 'moveTask':
             await handleMoveTask(
@@ -913,97 +999,152 @@ async function handleReorderTasks(webview: vscode.Webview, stage: Stage, taskOrd
   await broadcastTasks();
 }
 
-async function handleCopyPrompt(taskId: string) {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders) {
-    vscode.window.showErrorMessage('No workspace open');
+async function handleCopyPrompt(taskId: string, requestedMode?: CopyMode, sourceWebview?: vscode.Webview) {
+  const vibekanUri = await ensureVibekanRoot();
+  if (!vibekanUri) {
+    vscode.window.showErrorMessage('No .vibekan workspace found. Generate Vibekan first.');
+    if (sourceWebview) {
+      sourceWebview.postMessage({ type: 'copyError', error: 'No .vibekan workspace found.' });
+    }
     return;
   }
 
-  const rootUri = workspaceFolders[0].uri;
-  const vibekanUri = vscode.Uri.joinPath(rootUri, '.vibekan');
-  const tasksUri = vscode.Uri.joinPath(vibekanUri, 'tasks');
-  const contextUri = vscode.Uri.joinPath(vibekanUri, '_context');
-
-  // Find the task
-  let task: Task | null = null;
-  let taskContent = '';
-
-  for (const stage of STAGES) {
-    const stageUri = vscode.Uri.joinPath(tasksUri, stage);
-    try {
-      const files = await vscode.workspace.fs.readDirectory(stageUri);
-      for (const [fileName, fileType] of files) {
-        if (fileType === vscode.FileType.File && fileName.endsWith('.md')) {
-          const fileUri = vscode.Uri.joinPath(stageUri, fileName);
-          const parsedTask = await parseTaskFile(fileUri, stage);
-          if (parsedTask && parsedTask.id === taskId) {
-            task = parsedTask;
-            const content = await vscode.workspace.fs.readFile(fileUri);
-            taskContent = Buffer.from(content).toString('utf8');
-            break;
-          }
-        }
-      }
-      if (task) break;
-    } catch {
-      // Stage may not exist
+  const tasks = await loadTasksList();
+  if (!tasks || tasks.length === 0) {
+    vscode.window.showErrorMessage('No tasks found. Create a task first.');
+    if (sourceWebview) {
+      sourceWebview.postMessage({ type: 'copyError', error: 'No tasks available.' });
     }
+    return;
   }
 
+  const task = tasks.find((t) => t.id === taskId);
   if (!task) {
     vscode.window.showErrorMessage('Task not found');
+    if (sourceWebview) {
+      sourceWebview.postMessage({ type: 'copyError', error: 'Task not found.' });
+    }
     return;
   }
 
-  // Build the prompt with context
-  let prompt = `# Task: ${task.title}\n\n`;
-  prompt += taskContent + '\n\n';
-
-  // Add architecture context
+  const taskFileUri = vscode.Uri.file(task.filePath);
+  let taskContent = '';
   try {
-    const archUri = vscode.Uri.joinPath(contextUri, 'architecture.md');
-    const archContent = await vscode.workspace.fs.readFile(archUri);
-    prompt += `---\n\n## Architecture Context\n\n${Buffer.from(archContent).toString('utf8')}\n\n`;
-  } catch {
-    // No architecture file
+    const buf = await vscode.workspace.fs.readFile(taskFileUri);
+    taskContent = Buffer.from(buf).toString('utf8');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to read task file.';
+    vscode.window.showErrorMessage(message);
+    if (sourceWebview) {
+      sourceWebview.postMessage({ type: 'copyError', error: message });
+    }
+    return;
   }
 
-  // Add stage context
-  if (task.stage) {
-    try {
-      const stageContextUri = vscode.Uri.joinPath(contextUri, 'stages', `${task.stage}.md`);
-      const stageContent = await vscode.workspace.fs.readFile(stageContextUri);
-      prompt += `---\n\n## Stage Context: ${task.stage}\n\n${Buffer.from(stageContent).toString('utf8')}\n\n`;
-    } catch {
-      // No stage context
+  const copySettings = getCopySettings();
+  const mode = resolveCopyMode(requestedMode, copySettings.defaultMode);
+  const builder = new PromptBuilder(copySettings);
+
+  try {
+    const stageContext = await readTextIfExists(
+      vscode.Uri.joinPath(vibekanUri, '_context', 'stages', `${task.stage}.md`)
+    );
+    const phaseContext = task.phase
+      ? await readTextIfExists(vscode.Uri.joinPath(vibekanUri, '_context', 'phases', `${task.phase}.md`))
+      : null;
+    const agentContext = task.agent
+      ? await readTextIfExists(vscode.Uri.joinPath(vibekanUri, '_context', 'agents', `${task.agent}.md`))
+      : null;
+    const customContext = task.context
+      ? await readTextIfExists(vscode.Uri.joinPath(vibekanUri, '_context', 'custom', `${task.context}.md`))
+      : null;
+    const architecture = copySettings.includeArchitecture
+      ? await readTextIfExists(vscode.Uri.joinPath(vibekanUri, '_context', 'architecture.md'))
+      : null;
+    const userNotes = extractUserNotes(taskContent);
+
+    let prompt = '';
+
+    if (mode === 'full') {
+      prompt = builder.buildFullContext({
+        task,
+        stageContext: stageContext ?? undefined,
+        phaseContext,
+        agentContext,
+        customContext,
+        architecture,
+        userNotes,
+      });
+    } else if (mode === 'task') {
+      prompt = builder.buildTaskOnly({
+        task,
+        userNotes,
+      });
+    } else {
+      const stageContexts: Record<string, string> = {};
+      for (const stage of STAGES) {
+        const content = await readTextIfExists(
+          vscode.Uri.joinPath(vibekanUri, '_context', 'stages', `${stage}.md`)
+        );
+        stageContexts[stage] = content ?? `Add stage guidance in _context/stages/${stage}.md`;
+      }
+
+      const phaseContexts = await readContextDirectory(vscode.Uri.joinPath(vibekanUri, '_context', 'phases'));
+      const agentContexts = await readContextDirectory(vscode.Uri.joinPath(vibekanUri, '_context', 'agents'));
+
+      prompt = builder.buildContextOnly({
+        architecture,
+        stages: stageContexts,
+        phases: phaseContexts,
+        agents: agentContexts,
+      });
+    }
+
+    await vscode.env.clipboard.writeText(prompt);
+
+    const payload = {
+      type: 'copySuccess',
+      characterCount: prompt.length,
+      mode,
+      duration: copySettings.toastDuration,
+      showToast: copySettings.showToast,
+    };
+
+    if (sourceWebview) {
+      sourceWebview.postMessage(payload);
+    } else if (copySettings.showToast) {
+      vscode.window.showInformationMessage(
+        `Copied ${prompt.length} characters (${mode} mode) for "${task.title}".`
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to copy prompt.';
+    vscode.window.showErrorMessage(message);
+    if (sourceWebview) {
+      sourceWebview.postMessage({ type: 'copyError', error: message });
     }
   }
+}
 
-  // Add phase context
-  if (task.phase) {
-    try {
-      const phaseContextUri = vscode.Uri.joinPath(contextUri, 'phases', `${task.phase}.md`);
-      const phaseContent = await vscode.workspace.fs.readFile(phaseContextUri);
-      prompt += `---\n\n## Phase Context: ${task.phase}\n\n${Buffer.from(phaseContent).toString('utf8')}\n\n`;
-    } catch {
-      // No phase context
-    }
+async function quickCopyPrompt(mode: CopyMode) {
+  const tasks = await loadTasksList();
+  if (!tasks || tasks.length === 0) {
+    vscode.window.showErrorMessage('No tasks available to copy.');
+    return;
   }
 
-  // Add agent context
-  if (task.agent) {
-    try {
-      const agentContextUri = vscode.Uri.joinPath(contextUri, 'agents', `${task.agent}.md`);
-      const agentContent = await vscode.workspace.fs.readFile(agentContextUri);
-      prompt += `---\n\n## Agent Context: ${task.agent}\n\n${Buffer.from(agentContent).toString('utf8')}\n\n`;
-    } catch {
-      // No agent context
-    }
-  }
+  const pick = await vscode.window.showQuickPick<{ label: string; description?: string; taskId: string }>(
+    tasks.map((task) => ({
+      label: task.title,
+      description: [task.stage, task.phase, task.agent].filter(Boolean).join(' • '),
+      taskId: task.id,
+    })),
+    { placeHolder: 'Select a task to copy' }
+  );
 
-  await vscode.env.clipboard.writeText(prompt);
-  vscode.window.showInformationMessage(`Copied prompt for "${task.title}" (${prompt.length} chars)`);
+  if (!pick) return;
+
+  await handleCopyPrompt(pick.taskId, mode);
 }
 
 async function handleCreateTask(webview: vscode.Webview, payload: any) {
@@ -1180,7 +1321,7 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, vi
   // Let's replace the existing CSP if it exists, or insert into head.
   // Vite might not generate a CSP meta tag by default.
 
-  const cspMeta = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' https: http: ${webview.cspSource}; font-src ${webview.cspSource}; img-src ${webview.cspSource} https: data:;">`;
+  const cspMeta = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource}; font-src ${webview.cspSource}; img-src ${webview.cspSource} https: data:;">`;
   const contextScript = `<script nonce="${nonce}">window.vibekanViewType = '${viewType}';</script>`;
 
   // Insert after <head>

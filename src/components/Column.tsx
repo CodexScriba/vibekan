@@ -2,6 +2,7 @@ import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Task, Stage, STAGE_LABELS, STAGE_ICONS } from '../types/task';
+import { CopyMode } from '../types/copy';
 import { TaskCard } from './TaskCard';
 
 interface ColumnProps {
@@ -9,9 +10,20 @@ interface ColumnProps {
   tasks: Task[];
   selectedTaskId?: string;
   onSelectTask?: (taskId: string) => void;
+  defaultCopyMode: CopyMode;
+  openCopyMenuFor?: string | null;
+  onCloseCopyMenu?: () => void;
 }
 
-export const Column: React.FC<ColumnProps> = ({ stage, tasks, selectedTaskId, onSelectTask }) => {
+export const Column: React.FC<ColumnProps> = ({
+  stage,
+  tasks,
+  selectedTaskId,
+  onSelectTask,
+  defaultCopyMode,
+  openCopyMenuFor,
+  onCloseCopyMenu,
+}) => {
   const { setNodeRef, isOver } = useDroppable({
     id: stage,
   });
@@ -38,6 +50,9 @@ export const Column: React.FC<ColumnProps> = ({ stage, tasks, selectedTaskId, on
               task={task}
               isSelected={selectedTaskId === task.id}
               onSelect={onSelectTask}
+              defaultCopyMode={defaultCopyMode}
+              forceDropdownOpen={openCopyMenuFor === task.id}
+              onDropdownClose={onCloseCopyMenu}
             />
           ))}
         </SortableContext>

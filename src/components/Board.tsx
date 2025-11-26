@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -15,10 +15,17 @@ import {
 import { arrayMove } from '@dnd-kit/sortable';
 import { Copy } from 'lucide-react';
 import { Task, Stage, STAGES } from '../types/task';
+import { CopyMode, CopySettings, CopyErrorMessage, CopySettingsMessage, CopySuccessMessage } from '../types/copy';
 import { Column } from './Column';
-import { TaskCard } from './TaskCard';
 import { useTasks } from '../hooks/useTasks';
 import { getVsCodeApi } from '../utils/vscode';
+import { Toast } from './Toast';
+
+const MODE_LABELS: Record<CopyMode, string> = {
+  full: 'Full Context',
+  task: 'Task Only',
+  context: 'Context Only',
+};
 
 // Custom collision detection that prioritizes column droppables when no task is intersected
 const customCollisionDetection: CollisionDetection = (args) => {
@@ -81,6 +88,16 @@ export const Board: React.FC = () => {
   const { tasks, setTasks, loading, error } = useTasks();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | undefined>();
+  const [openCopyMenuFor, setOpenCopyMenuFor] = useState<string | null>(null);
+  const [copySettings, setCopySettings] = useState<CopySettings>({
+    defaultMode: 'full',
+    includeArchitecture: true,
+    includeTimestamps: true,
+    xmlFormatting: 'pretty',
+    showToast: true,
+    toastDuration: 3000,
+  });
+  const [toast, setToast] = useState<{ message: string; kind: 'success' | 'error'; duration: number } | null>(null);
   const originalStageRef = useRef<Stage | null>(null);
   const lastOverIdRef = useRef<string | null>(null);
   const vscode = getVsCodeApi();
@@ -92,6 +109,54 @@ export const Board: React.FC = () => {
       },
     })
   );
+
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      const message = event.data as CopySuccessMessage | CopyErrorMessage | CopySettingsMessage;
+      if (!message || typeof message !== 'object') return;
+
+      if (message.type === 'copySettings') {
+        setCopySettings((prev) => ({ ...prev, ...message.settings }));
+        return;
+      }
+
+      if (message.type === 'copySuccess') {
+        const shouldToast = (message.showToast ?? true) && copySettings.showToast;
+        if (shouldToast) {
+          const label = MODE_LABELS[message.mode] ?? 'Full Context';
+          setToast({
+            message: `Copied ${message.characterCount} characters (${label}) ✓`,
+            kind: 'success',
+            duration: message.duration ?? copySettings.toastDuration,
+          });
+        }
+        return;
+      }
+
+      if (message.type === 'copyError') {
+        setToast({
+          message: `Copy failed: ${message.error}`,
+          kind: 'error',
+          duration: copySettings.toastDuration,
+        });
+      }
+    };
+
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [copySettings]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), toast.duration);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  useEffect(() => {
+    if (openCopyMenuFor && openCopyMenuFor !== selectedTaskId) {
+      setOpenCopyMenuFor(null);
+    }
+  }, [openCopyMenuFor, selectedTaskId]);
 
   const getTasksByStage = useCallback(
     (stage: Stage): Task[] => {
@@ -243,6 +308,12 @@ export const Board: React.FC = () => {
       const currentIndex = stageTasks.findIndex((t) => t.id === selectedTaskId);
       const stageIndex = STAGES.indexOf(currentTask.stage);
 
+      if ((e.key === 'c' || e.key === 'C') && e.shiftKey && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setOpenCopyMenuFor(selectedTaskId);
+        return;
+      }
+
       switch (e.key) {
         case 'ArrowUp': {
           e.preventDefault();
@@ -283,13 +354,24 @@ export const Board: React.FC = () => {
         case 'c':
         case 'C': {
           if (vscode) {
-            vscode.postMessage({ command: 'copyPrompt', taskId: selectedTaskId });
+            e.preventDefault();
+            vscode.postMessage({
+              command: 'copyPrompt',
+              taskId: selectedTaskId,
+              mode: copySettings.defaultMode,
+            });
+          }
+          break;
+        }
+        case 'Escape': {
+          if (openCopyMenuFor) {
+            setOpenCopyMenuFor(null);
           }
           break;
         }
       }
     },
-    [selectedTaskId, tasks, getTasksByStage, vscode]
+    [selectedTaskId, tasks, getTasksByStage, vscode, copySettings.defaultMode, openCopyMenuFor]
   );
 
   if (loading) {
@@ -326,6 +408,9 @@ export const Board: React.FC = () => {
               tasks={getTasksByStage(stage)}
               selectedTaskId={selectedTaskId}
               onSelectTask={setSelectedTaskId}
+              defaultCopyMode={copySettings.defaultMode}
+              openCopyMenuFor={openCopyMenuFor}
+              onCloseCopyMenu={() => setOpenCopyMenuFor(null)}
             />
           ))}
         </div>
@@ -334,6 +419,13 @@ export const Board: React.FC = () => {
           {activeTask && <TaskCardOverlay task={activeTask} />}
         </DragOverlay>
       </DndContext>
+      {toast && (
+        <Toast
+          message={toast.message}
+          kind={toast.kind}
+          onDismiss={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };
