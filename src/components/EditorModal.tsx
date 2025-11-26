@@ -1,7 +1,12 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import Editor, { OnMount } from '@monaco-editor/react';
+import Editor, { OnMount, loader } from '@monaco-editor/react';
+import * as monaco from 'monaco-editor';
 import { X, Save, Loader2, SaveAll } from 'lucide-react';
 import { getVsCodeApi } from '../utils/vscode';
+
+// Configure Monaco to use local files instead of CDN
+// This is required for VSCode webviews which have strict CSP
+loader.config({ monaco });
 
 interface EditorModalProps {
   open: boolean;
@@ -16,6 +21,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
   fileName,
   onClose,
 }) => {
+  console.log('[EditorModal] Render - open:', open, 'filePath:', filePath);
   const vscode = getVsCodeApi();
   const [content, setContent] = useState<string>('');
   const [originalContent, setOriginalContent] = useState<string>('');
@@ -31,39 +37,23 @@ export const EditorModal: React.FC<EditorModalProps> = ({
 
   const isDirty = content !== originalContent;
 
-  // Load file content when modal opens
+  // Combined effect: Set up listener FIRST, then send request
+  // This prevents the race condition where the response arrives before the listener is ready
   useEffect(() => {
     if (!open) return;
-    if (!vscode) {
-      setError('VS Code API unavailable. Open this view inside VS Code.');
-      setLoading(false);
-      return;
-    }
-    if (filePath) {
-      setLoading(true);
-      setError(null);
-      setConflictPending(null);
-      vscode.postMessage({ command: 'readTaskFile', filePath });
-    }
-  }, [open, filePath, vscode]);
 
-  // Failsafe timeout so the modal doesn't get stuck on "Loading..."
-  useEffect(() => {
-    if (!open || !loading) return;
-    const timer = setTimeout(() => {
-      setLoading(false);
-      setError('Timed out while loading the file. Please try again.');
-    }, 8000);
-    return () => clearTimeout(timer);
-  }, [open, loading]);
+    console.log('[EditorModal] Setting up message listener for filePath:', filePath);
 
-  // Listen for file content response - stable dependency array
-  useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
+      // Log ALL messages to see what's coming through
+      if (message && typeof message === 'object') {
+        console.log('[EditorModal] Received message:', JSON.stringify(message).substring(0, 200));
+      }
 
       switch (message.command) {
         case 'taskFileContent':
+          console.log('[EditorModal] Got taskFileContent, content length:', message.content?.length);
           setContent(message.content || '');
           setOriginalContent(message.content || '');
           setLoading(false);
@@ -117,9 +107,36 @@ export const EditorModal: React.FC<EditorModalProps> = ({
       }
     };
 
+    // Set up listener BEFORE sending request
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [filePath, onClose]); // Removed content dependency
+
+    // Now send the request
+    if (!vscode) {
+      setError('VS Code API unavailable. Open this view inside VS Code.');
+      setLoading(false);
+    } else if (filePath) {
+      setLoading(true);
+      setError(null);
+      setConflictPending(null);
+      console.log('[EditorModal] Sending readTaskFile request for:', filePath);
+      vscode.postMessage({ command: 'readTaskFile', filePath });
+    }
+
+    return () => {
+      console.log('[EditorModal] Removing message listener');
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [open, filePath, vscode, onClose]);
+
+  // Failsafe timeout so the modal doesn't get stuck on "Loading..."
+  useEffect(() => {
+    if (!open || !loading) return;
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setError('Timed out while loading the file. Please try again.');
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [open, loading]);
 
   const handleSave = useCallback((closeAfter = false) => {
     if (!vscode || !isDirty) return;

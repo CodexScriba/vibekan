@@ -159,6 +159,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Handle messages from the board
     panel.webview.onDidReceiveMessage(
       async (message) => {
+        console.log('[Vibekan Board] Received message:', message.command, message);
         switch (message.command) {
           case 'generateVibekan':
             await handleGenerateVibekan(panel.webview);
