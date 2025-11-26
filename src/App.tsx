@@ -1,6 +1,7 @@
 import React from 'react';
 import './index.css';
 import { Sidebar } from './components/Sidebar';
+import { Board } from './components/Board';
 
 const App: React.FC = () => {
   // Determine view type from global window object injected by extension
@@ -11,21 +12,7 @@ const App: React.FC = () => {
     return <Sidebar />;
   }
 
-  return (
-    <div className="glass-panel" style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100vh',
-      color: 'var(--text-primary)',
-      padding: '20px',
-      textAlign: 'center'
-    }}>
-      <h1>Vibekan Board</h1>
-      <p>Glassmorphic UI placeholder – Phase B implementation pending.</p>
-    </div>
-  );
+  return <Board />;
 };
 
 export default App;
