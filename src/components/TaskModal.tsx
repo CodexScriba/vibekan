@@ -29,7 +29,7 @@ interface LastSelections {
 
 export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSubmit, contextData }) => {
   const [title, setTitle] = useState('');
-  const [stage, setStage] = useState<Stage>('chat');
+  const [stage, setStage] = useState<Stage>('idea');
   const [phase, setPhase] = useState('');
   const [agent, setAgent] = useState('');
   const [context, setContext] = useState('');
@@ -62,7 +62,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSubmit, c
       }
     }
     setTitle('');
-    setStage('chat');
+    setStage('idea');
     setPhase(defaults.phase ?? '');
     setAgent(defaults.agent ?? '');
     setContext(defaults.context ?? '');

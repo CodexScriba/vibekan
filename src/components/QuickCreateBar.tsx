@@ -9,6 +9,7 @@ interface QuickCreateBarProps {
   onOpenArchitecture: () => void;
   onOpenRoadmap: () => void;
   disabled?: boolean;
+  showLabels?: boolean;
 }
 
 export const QuickCreateBar: React.FC<QuickCreateBarProps> = ({
@@ -19,6 +20,7 @@ export const QuickCreateBar: React.FC<QuickCreateBarProps> = ({
   onOpenArchitecture,
   onOpenRoadmap,
   disabled,
+  showLabels = false,
 }) => {
   const items = [
     { label: 'New Task', icon: <Plus size={16} />, action: onNewTask },
@@ -30,16 +32,17 @@ export const QuickCreateBar: React.FC<QuickCreateBarProps> = ({
   ];
 
   return (
-    <div className="quick-create-bar">
+    <div className={`quick-create-bar ${showLabels ? 'with-labels' : ''}`}>
       {items.map((item) => (
         <button
           key={item.label}
-          className="quick-create-button"
+          className={`quick-create-button ${showLabels ? 'labeled' : ''}`}
           title={item.label}
           onClick={item.action}
           disabled={disabled}
         >
           {item.icon}
+          {showLabels && <span className="quick-create-label">{item.label}</span>}
         </button>
       ))}
     </div>

@@ -8,7 +8,7 @@
   },
   "main": "./out/extension.js",
   "scripts": {
-    "test": "npm run compile && node ./out/test/runTest.js",
+    "test": "npm run compile && vitest run",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "dev": "vite",

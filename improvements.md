@@ -7,7 +7,7 @@
 
 ## Improvements to Implement
 
-### 1. Rename "Chat" Stage → "Idea"
+### 1. Rename "Chat" Stage → "Idea" (✅ Completed)
 **Goal:** Rename the initial stage from "chat" to "Idea" to better reflect its purpose as the starting point for new tasks.
 **Rationale:** "Idea" implies a concept waiting to be developed, whereas "Chat" implies a communication channel.
 **Changes:**
@@ -36,7 +36,7 @@
 
 ---
 
-### 2. File Naming Convention: Stage Prefix in Slugs
+### 2. File Naming Convention: Stage Prefix in Slugs (✅ Completed)
 **Goal:** Prefix task filenames with their current stage to ensure unique sorting and clearer organization.
 **Rationale:** Helps in organizing files on disk and allows for automatic renaming when tasks move between stages.
 **Changes:**
@@ -69,7 +69,7 @@
 
 ---
 
-### 3. Quick Create Buttons in Topbar (Dual Placement)
+### 3. Quick Create Buttons in Topbar (Dual Placement) (✅ Completed)
 **Goal:** Add quick create buttons to the board topbar for easier access, while keeping them in the sidebar.
 **Rationale:** Allows users to close the sidebar while still having access to create actions directly from the board.
 **Changes:**

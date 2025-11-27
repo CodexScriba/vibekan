@@ -70,52 +70,18 @@ body {
   color: var(--text-primary);
 }
 
-.theme-controls {
-  display: flex;
-  align-items: center;
+.board-topbar .quick-create-bar {
+  grid-template-columns: repeat(auto-fit, minmax(36px, 1fr));
+  padding: 6px 8px;
   gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.theme-pill-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-}
-
-.theme-pill {
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-secondary);
-  padding: 6px 10px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
-}
-
-.theme-pill:hover {
-  color: var(--text-primary);
-  border-color: var(--glass-border);
-}
-
-.theme-pill.active {
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--glass-bg) 70%, var(--accent-primary) 30%);
+  width: min(360px, 100%);
+  margin-left: auto;
+  background: color-mix(in srgb, var(--glass-bg) 85%, #ffffff 6%);
   border-color: var(--glass-border-strong);
-  box-shadow: 0 0 12px rgba(59, 245, 255, 0.18);
 }
 
-.theme-pill.reduced.active {
-  background: color-mix(in srgb, var(--glass-bg) 60%, var(--accent-secondary) 20%);
+.board-topbar .quick-create-button {
+  height: 34px;
 }
 
 /* Glassmorphism Utilities */
@@ -1186,4 +1152,40 @@ body {
 
 :root[data-reduced-motion="true"] .spin {
   animation: none;
+}
+/* Append these styles to the end of the file */
+
+.quick-create-bar.with-labels {
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+}
+
+.quick-create-button.labeled {
+  padding: 0 10px;
+  justify-content: flex-start;
+  gap: 8px;
+  width: auto;
+}
+
+.quick-create-label {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 800px) {
+  .quick-create-button.labeled .quick-create-label {
+    display: none;
+  }
+  
+  .quick-create-button.labeled {
+    justify-content: center;
+    padding: 0;
+  }
+  
+  .quick-create-bar.with-labels {
+    grid-template-columns: repeat(auto-fit, minmax(36px, 1fr));
+  }
 }

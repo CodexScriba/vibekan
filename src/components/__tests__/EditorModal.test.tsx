@@ -3,6 +3,7 @@ import { render, screen, waitFor, cleanup, act, fireEvent } from '@testing-libra
 import { EditorModal } from '../EditorModal';
 
 // Mock Monaco editor with a simple textarea so we don't load the real editor in tests
+vi.mock('monaco-editor', () => ({}));
 vi.mock('@monaco-editor/react', () => ({
   __esModule: true,
   default: ({ value, onChange }: { value: string; onChange?: (v: string) => void }) => (
@@ -12,6 +13,9 @@ vi.mock('@monaco-editor/react', () => ({
       onChange={(e) => onChange?.(e.target.value)}
     />
   ),
+  loader: {
+    config: vi.fn(),
+  },
 }));
 
 const postMessage = vi.fn();

@@ -1,4 +1,4 @@
-export type Stage = 'chat' | 'queue' | 'plan' | 'code' | 'audit' | 'completed';
+export type Stage = 'idea' | 'queue' | 'plan' | 'code' | 'audit' | 'completed';
 
 export interface Task {
   id: string;
@@ -16,10 +16,10 @@ export interface Task {
   order?: number;
 }
 
-export const STAGES: Stage[] = ['chat', 'queue', 'plan', 'code', 'audit', 'completed'];
+export const STAGES: Stage[] = ['idea', 'queue', 'plan', 'code', 'audit', 'completed'];
 
 export const STAGE_LABELS: Record<Stage, string> = {
-  chat: 'Chat',
+  idea: 'Idea',
   queue: 'Queue',
   plan: 'Plan',
   code: 'Code',
@@ -28,7 +28,7 @@ export const STAGE_LABELS: Record<Stage, string> = {
 };
 
 export const STAGE_ICONS: Record<Stage, string> = {
-  chat: '💬',
+  idea: '💡',
   queue: '📋',
   plan: '📝',
   code: '💻',

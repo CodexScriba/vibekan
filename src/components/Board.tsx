@@ -18,10 +18,13 @@ import { Task, Stage, STAGES } from '../types/task';
 import { CopyMode, CopySettings, CopyErrorMessage, CopySettingsMessage, CopySuccessMessage } from '../types/copy';
 import { Column } from './Column';
 import { useTasks } from '../hooks/useTasks';
+import { useContextData } from '../hooks/useContextData';
 import { getVsCodeApi } from '../utils/vscode';
 import { Toast } from './Toast';
 import { EditorModal } from './EditorModal';
-import { ThemeControls } from './ThemeControls';
+import { QuickCreateBar } from './QuickCreateBar';
+import { TaskModal, TaskModalPayload } from './TaskModal';
+import { CreateEntityModal } from './modals/CreateEntityModal';
 
 const MODE_LABELS: Record<CopyMode, string> = {
   full: 'Full Context',
@@ -88,6 +91,7 @@ const TaskCardOverlay: React.FC<{ task: Task }> = ({ task }) => {
 
 export const Board: React.FC = () => {
   const { tasks, setTasks, loading, error } = useTasks();
+  const { data: contextData } = useContextData();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | undefined>();
   const [openCopyMenuFor, setOpenCopyMenuFor] = useState<string | null>(null);
@@ -101,6 +105,12 @@ export const Board: React.FC = () => {
   });
   const [toast, setToast] = useState<{ message: string; kind: 'success' | 'error'; duration: number } | null>(null);
   const [editorTask, setEditorTask] = useState<Task | null>(null);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [entityModal, setEntityModal] = useState<{ type: 'phase' | 'agent' | 'context'; open: boolean }>({
+    type: 'phase',
+    open: false,
+  });
+  const [workspaceExists, setWorkspaceExists] = useState(false);
   const originalStageRef = useRef<Stage | null>(null);
   const lastOverIdRef = useRef<string | null>(null);
   const vscode = getVsCodeApi();
@@ -113,6 +123,48 @@ export const Board: React.FC = () => {
     setEditorTask(null);
   }, []);
 
+  const handleOpenArchitecture = useCallback(() => {
+    vscode?.postMessage({ command: 'openArchitecture' });
+  }, [vscode]);
+
+  const handleOpenRoadmap = useCallback(() => {
+    vscode?.postMessage({ command: 'openRoadmap' });
+  }, [vscode]);
+
+  const handleNewTask = useCallback(() => {
+    if (!workspaceExists) return;
+    setShowTaskModal(true);
+  }, [workspaceExists]);
+
+  const handleTaskSubmit = useCallback(
+    (payload: TaskModalPayload) => {
+      vscode?.postMessage({ command: 'createTask', payload });
+      setShowTaskModal(false);
+    },
+    [vscode]
+  );
+
+  const promptAndSend = useCallback(
+    (type: 'phase' | 'agent' | 'context') => {
+      if (!workspaceExists) return;
+      setEntityModal({ type, open: true });
+    },
+    [workspaceExists]
+  );
+
+  const handleCreateEntity = useCallback(
+    (payload: { name: string; content: string }) => {
+      const commandMap = {
+        phase: 'createPhase',
+        agent: 'createAgent',
+        context: 'createContext',
+      } as const;
+      vscode?.postMessage({ command: commandMap[entityModal.type], payload });
+      setEntityModal((prev) => ({ ...prev, open: false }));
+    },
+    [entityModal.type, vscode]
+  );
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -122,9 +174,20 @@ export const Board: React.FC = () => {
   );
 
   useEffect(() => {
+    if (vscode) {
+      vscode.postMessage({ command: 'checkState' });
+    }
+  }, [vscode]);
+
+  useEffect(() => {
     const handler = (event: MessageEvent) => {
       const message = event.data as CopySuccessMessage | CopyErrorMessage | CopySettingsMessage;
       if (!message || typeof message !== 'object') return;
+
+      if ((message as any).type === 'state') {
+        setWorkspaceExists(!!(message as any).exists);
+        return;
+      }
 
       if (message.type === 'copySettings') {
         setCopySettings((prev) => ({ ...prev, ...message.settings }));
@@ -150,18 +213,57 @@ export const Board: React.FC = () => {
           kind: 'error',
           duration: copySettings.toastDuration,
         });
+        return;
+      }
+
+      if ((message as any).type === 'taskMoved') {
+        const payload = message as any;
+        if (payload.ok && payload.newTaskId && payload.taskId === selectedTaskId) {
+          setSelectedTaskId(payload.newTaskId);
+        }
+        return;
+      }
+
+      if ((message as any).type === 'taskFileSaved') {
+        const payload = message as any;
+        if (payload.moved && payload.filePath) {
+          // Extract ID from new file path (filename without extension)
+          const fileName = payload.filePath.split(/[/\\]/).pop() || '';
+          const newId = fileName.replace(/\.md$/, '');
+          
+          // Check if the moved file corresponds to the currently selected task
+          // We can't check ID directly against payload.originalFilePath easily without task lookup,
+          // but if we are editing it, it might be selected.
+          // However, simpler heuristic: if we have an active editorTask and it matches selectedTaskId, update it.
+          // Or better: we can't easily know if the saved file was the selected one just from file path unless we map it.
+          // But typically user edits the selected task.
+          
+          // Let's try to find if any task in current 'tasks' matches the originalFilePath
+          const originalPath = payload.originalFilePath;
+          const movedTask = tasks.find(t => t.filePath === originalPath);
+          if (movedTask && movedTask.id === selectedTaskId) {
+            setSelectedTaskId(newId);
+          }
+        }
+        return;
       }
     };
 
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [copySettings]);
+  }, [copySettings, selectedTaskId, tasks]);
 
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), toast.duration);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if (error && error.toLowerCase().includes('.vibekan')) {
+      setWorkspaceExists(false);
+    }
+  }, [error]);
 
   useEffect(() => {
     if (openCopyMenuFor && openCopyMenuFor !== selectedTaskId) {
@@ -406,7 +508,16 @@ export const Board: React.FC = () => {
     <div className="board-container" onKeyDown={handleKeyDown} tabIndex={0}>
       <div className="board-topbar">
         <div className="board-topbar-title">Vibekan Board</div>
-        <ThemeControls />
+        <QuickCreateBar
+          onNewTask={handleNewTask}
+          onNewContext={() => promptAndSend('context')}
+          onNewAgent={() => promptAndSend('agent')}
+          onNewPhase={() => promptAndSend('phase')}
+          onOpenArchitecture={handleOpenArchitecture}
+          onOpenRoadmap={handleOpenRoadmap}
+          disabled={!workspaceExists}
+          showLabels={true}
+        />
       </div>
       <div className="board-content">
         <DndContext
@@ -451,6 +562,18 @@ export const Board: React.FC = () => {
             onClose={handleCloseEditor}
           />
         )}
+        <TaskModal
+          open={showTaskModal}
+          onClose={() => setShowTaskModal(false)}
+          onSubmit={handleTaskSubmit}
+          contextData={contextData}
+        />
+        <CreateEntityModal
+          open={entityModal.open}
+          type={entityModal.type}
+          onCancel={() => setEntityModal((prev) => ({ ...prev, open: false }))}
+          onSubmit={handleCreateEntity}
+        />
       </div>
     </div>
   );

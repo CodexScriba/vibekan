@@ -24,6 +24,22 @@ interface ContextData {
   contexts: string[];
 }
 
+const LEGACY_STAGE_ALIASES: Record<string, Stage> = {
+  chat: 'idea',
+};
+
+function normalizeStage(input?: string, fallback: Stage | undefined = 'idea'): Stage | undefined {
+  if (!input) return fallback;
+  const value = input.toLowerCase();
+  if (STAGES.includes(value as Stage)) {
+    return value as Stage;
+  }
+  if (LEGACY_STAGE_ALIASES[value]) {
+    return LEGACY_STAGE_ALIASES[value];
+  }
+  return fallback;
+}
+
 function slugify(input: string): string {
   return input
     .trim()
@@ -31,6 +47,45 @@ function slugify(input: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80) || 'item';
+}
+
+function getBaseSlug(idOrFileName: string): string {
+  const trimmed = idOrFileName.replace(/\.md$/, '');
+  const lower = trimmed.toLowerCase();
+  for (const stage of STAGES) {
+    const prefix = `${stage}-`;
+    if (lower.startsWith(prefix)) {
+      return trimmed.slice(prefix.length);
+    }
+  }
+  for (const legacy of Object.keys(LEGACY_STAGE_ALIASES)) {
+    const prefix = `${legacy}-`;
+    if (lower.startsWith(prefix)) {
+      return trimmed.slice(prefix.length);
+    }
+  }
+  if (lower.startsWith('task-')) {
+    return trimmed.slice('task-'.length);
+  }
+  return trimmed;
+}
+
+async function ensureUniqueTaskId(stage: Stage, baseSlug: string, stageUri: vscode.Uri): Promise<string> {
+  let uniqueId = `${stage}-${baseSlug}`;
+  let counter = 1;
+
+  while (true) {
+    const candidateUri = vscode.Uri.joinPath(stageUri, `${uniqueId}.md`);
+    try {
+      await vscode.workspace.fs.stat(candidateUri);
+      uniqueId = `${stage}-${baseSlug}-${counter}`;
+      counter += 1;
+    } catch {
+      break;
+    }
+  }
+
+  return uniqueId;
 }
 
 async function ensureVibekanRoot(): Promise<vscode.Uri | null> {
@@ -45,6 +100,35 @@ async function ensureVibekanRoot(): Promise<vscode.Uri | null> {
     return vibekanUri;
   } catch {
     return null;
+  }
+}
+
+async function scaffoldVibekanWorkspace(vibekanUri: vscode.Uri) {
+  await vscode.workspace.fs.createDirectory(vibekanUri);
+
+  const stageDirs = STAGES.map((stage) => `tasks/${stage}`);
+  const dirs = [...stageDirs, '_context/stages', '_context/phases', '_context/agents', '_context/custom'];
+  for (const dir of dirs) {
+    await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(vibekanUri, dir));
+  }
+
+  const files: Array<{ path: string; contents: string }> = [
+    {
+      path: '_context/architecture.md',
+      contents: '# Architecture\n\nDescribe your project architecture here. This file is referenced by Vibekan.\n',
+    },
+  ];
+
+  for (const stage of STAGES) {
+    files.push({
+      path: `_context/stages/${stage}.md`,
+      contents: `# Stage: ${stage}\n\nDescribe how tasks should be executed in this stage.\n`,
+    });
+  }
+
+  for (const file of files) {
+    const target = vscode.Uri.joinPath(vibekanUri, file.path);
+    await vscode.workspace.fs.writeFile(target, Buffer.from(file.contents, 'utf8'));
   }
 }
 
@@ -235,6 +319,30 @@ export function activate(context: vscode.ExtensionContext) {
           case 'openRoadmap':
             await handleOpenRoadmap();
             break;
+          case 'openArchitecture':
+            await handleOpenArchitecture();
+            break;
+          case 'loadContextData':
+            await sendContextData(panel.webview);
+            break;
+          case 'createTask':
+            await handleCreateTask(panel.webview, message.payload);
+            break;
+          case 'createAgent':
+            await handleCreateAgent(panel.webview, message.payload ?? { name: message.name });
+            break;
+          case 'createPhase':
+            await handleCreatePhase(panel.webview, message.payload ?? { name: message.name });
+            break;
+          case 'createContext':
+            await handleCreateContext(panel.webview, message.payload ?? { name: message.name });
+            break;
+          case 'deleteTask':
+            await handleDeleteTask(message.taskId);
+            break;
+          case 'duplicateTask':
+            await handleDuplicateTask(panel.webview, message.taskId);
+            break;
           case 'readTaskFile':
             await handleReadTaskFile(panel.webview, message.filePath);
             break;
@@ -284,6 +392,18 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {}
+
+// Exposed for unit tests only
+export const TEST_API = {
+  scaffoldVibekanWorkspace,
+  normalizeStage,
+  getBaseSlug,
+  ensureUniqueTaskId,
+  createTaskFile,
+  handleMoveTask,
+  handleSaveTaskFile,
+  loadTasksList,
+};
 
 class VibekanSidebarProvider implements vscode.WebviewViewProvider {
   constructor(private readonly _extensionUri: vscode.Uri) {}
@@ -402,32 +522,7 @@ async function handleGenerateVibekan(webview: vscode.Webview) {
   } catch {
     // If stat fails, folder likely doesn't exist, proceed to create
     try {
-      await vscode.workspace.fs.createDirectory(vibekanUri);
-      // Scaffold subdirectories
-      const dirs = ['tasks/chat', 'tasks/queue', 'tasks/plan', 'tasks/code', 'tasks/audit', 'tasks/completed', '_context/stages', '_context/phases', '_context/agents', '_context/custom'];
-      for (const dir of dirs) {
-        await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(vibekanUri, dir));
-      }
-
-      // Create default context files (minimal placeholders for roadmap alignment)
-      const files: Array<{ path: string; contents: string }> = [
-        {
-          path: '_context/architecture.md',
-          contents: '# Architecture\n\nDescribe your project architecture here. This file is referenced by Vibekan.\n',
-        },
-      ];
-
-      for (const stage of STAGES) {
-        files.push({
-          path: `_context/stages/${stage}.md`,
-          contents: `# Stage: ${stage}\n\nDescribe how tasks should be executed in this stage.\n`,
-        });
-      }
-
-      for (const file of files) {
-        const target = vscode.Uri.joinPath(vibekanUri, file.path);
-        await vscode.workspace.fs.writeFile(target, Buffer.from(file.contents, 'utf8'));
-      }
+      await scaffoldVibekanWorkspace(vibekanUri);
 
       webview.postMessage({ type: 'result', command: 'generateVibekan', ok: true });
       // Also send state update
@@ -486,10 +581,20 @@ async function loadTasksList(): Promise<Task[] | null> {
     return null;
   }
 
+  await migrateLegacyStages(vibekanUri);
+
   const tasks: Task[] = [];
 
-  for (const stage of STAGES) {
-    const stageUri = vscode.Uri.joinPath(tasksUri, stage);
+  const stageSources: Array<{ stage: Stage; uri: vscode.Uri }> = STAGES.map((stage) => ({
+    stage,
+    uri: vscode.Uri.joinPath(tasksUri, stage),
+  }));
+
+  for (const [legacy, target] of Object.entries(LEGACY_STAGE_ALIASES)) {
+    stageSources.push({ stage: target, uri: vscode.Uri.joinPath(tasksUri, legacy) });
+  }
+
+  for (const { stage, uri: stageUri } of stageSources) {
     try {
       const files = await vscode.workspace.fs.readDirectory(stageUri);
       const stageTasks: Task[] = [];
@@ -689,25 +794,77 @@ async function handleSaveTaskFile(
       }
     }
 
-    // Parse content to detect stage changes from frontmatter
-    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-    let currentStage: Stage | undefined;
-    if (frontmatterMatch) {
-      const parsed = parseFrontmatter(frontmatterMatch[1]);
-      if (parsed.stage && STAGES.includes(parsed.stage as Stage)) {
-        currentStage = parsed.stage as Stage;
-      }
-    }
-
     // Extract current stage from file path using path.sep for cross-platform support
     // Path pattern: .../.vibekan/tasks/{stage}/filename.md
     const normalizedPath = filePath.split(path.sep).join('/'); // Normalize to forward slashes for regex
     const pathMatch = normalizedPath.match(/\.vibekan\/tasks\/([^/]+)\//);
-    const pathStage = pathMatch?.[1] as Stage | undefined;
+    const pathStage = normalizeStage(pathMatch?.[1], undefined);
+
+    // Parse content to detect stage changes from frontmatter. Fallback to path stage to avoid accidental moves.
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const parsedFrontmatter = frontmatterMatch ? parseFrontmatter(frontmatterMatch[1]) : null;
+    const currentStage = parsedFrontmatter
+      ? normalizeStage(typeof parsedFrontmatter.stage === 'string' ? parsedFrontmatter.stage : undefined, pathStage)
+      : pathStage;
+
+    let contentToPersist = content;
+    let newIdForMove: string | null = null;
+    let targetStageUri: vscode.Uri | null = null;
+
+    if (currentStage && pathStage && currentStage !== pathStage) {
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (workspaceFolders) {
+        const rootUri = workspaceFolders[0].uri;
+        const tasksUri = vscode.Uri.joinPath(rootUri, '.vibekan', 'tasks');
+        targetStageUri = vscode.Uri.joinPath(tasksUri, currentStage);
+        await ensureDirectory(targetStageUri);
+
+        const baseSlugSource =
+          (parsedFrontmatter?.id as string | undefined) ?? path.basename(filePath, '.md');
+        const baseSlug = getBaseSlug(baseSlugSource);
+        newIdForMove = await ensureUniqueTaskId(currentStage, baseSlug, targetStageUri);
+
+        // Compute new order at destination to avoid duplicate order collisions
+        const destEntries = await vscode.workspace.fs.readDirectory(targetStageUri);
+        let maxOrder = -1;
+        let destCount = 0;
+        for (const [destName, destType] of destEntries) {
+          if (destType !== vscode.FileType.File || !destName.endsWith('.md')) continue;
+          destCount += 1;
+          const destUri = vscode.Uri.joinPath(targetStageUri, destName);
+          const destContent = await readTextIfExists(destUri);
+          const fm = destContent?.match(/^---\n([\s\S]*?)\n---/);
+          if (fm) {
+            const parsed = parseFrontmatter(fm[1]);
+            const parsedOrder = typeof parsed.order === 'string' ? parseInt(parsed.order, 10) : undefined;
+            if (typeof parsedOrder === 'number' && !Number.isNaN(parsedOrder) && parsedOrder > maxOrder) {
+              maxOrder = parsedOrder;
+            }
+          }
+        }
+        const newOrder = maxOrder >= 0 ? maxOrder + 1 : destCount;
+
+        const updatedFrontmatter: ParsedFrontmatter = parsedFrontmatter ? { ...parsedFrontmatter } : {};
+        updatedFrontmatter.id = newIdForMove;
+        updatedFrontmatter.stage = currentStage;
+        updatedFrontmatter.updated = new Date().toISOString();
+        updatedFrontmatter.order = String(newOrder);
+        if (!updatedFrontmatter.title) {
+          updatedFrontmatter.title = path.basename(filePath, '.md').replace(/-/g, ' ');
+        }
+        if (!updatedFrontmatter.created) {
+          updatedFrontmatter.created = new Date().toISOString();
+        }
+
+        const bodyStart = frontmatterMatch ? frontmatterMatch[0].length : 0;
+        const body = bodyStart > 0 ? content.slice(bodyStart) : `\n\n${content}`;
+        contentToPersist = `---\n${serializeFrontmatter(updatedFrontmatter)}\n---${body}`;
+      }
+    }
 
     // Save the file
     const encoder = new TextEncoder();
-    await vscode.workspace.fs.writeFile(uri, encoder.encode(content));
+    await vscode.workspace.fs.writeFile(uri, encoder.encode(contentToPersist));
 
     // Track if file was moved and the new path
     let finalFilePath = filePath;
@@ -723,51 +880,51 @@ async function handleSaveTaskFile(
     }
 
     // If stage changed in frontmatter, move the file
-    if (currentStage && pathStage && currentStage !== pathStage && STAGES.includes(currentStage)) {
-      const workspaceFolders = vscode.workspace.workspaceFolders;
-      if (workspaceFolders) {
-        const rootUri = workspaceFolders[0].uri;
-        const tasksUri = vscode.Uri.joinPath(rootUri, '.vibekan', 'tasks');
-        const newStageUri = vscode.Uri.joinPath(tasksUri, currentStage);
-        const fileName = path.basename(filePath); // Cross-platform filename extraction
-        const newFileUri = vscode.Uri.joinPath(newStageUri, fileName);
+    if (newIdForMove && targetStageUri && currentStage && pathStage && currentStage !== pathStage) {
+      const newFileUri = vscode.Uri.joinPath(targetStageUri, `${newIdForMove}.md`);
 
+      try {
+        // Attempt move; if target exists, this will throw
+        await vscode.workspace.fs.rename(uri, newFileUri, { overwrite: false });
+        fileMtimes.delete(filePath);
+        finalFilePath = newFileUri.fsPath;
+        fileMoved = true;
+        // Store mtime for the new path
         try {
-          await ensureDirectory(newStageUri);
-          // Attempt move; if target exists, this will throw
-          await vscode.workspace.fs.rename(uri, newFileUri, { overwrite: false });
-          fileMtimes.delete(filePath);
-          finalFilePath = newFileUri.fsPath;
-          fileMoved = true;
-          // Store mtime for the new path
-          try {
-            const movedStat = await vscode.workspace.fs.stat(newFileUri);
-            fileMtimes.set(finalFilePath, movedStat.mtime);
-          } catch {
-            // Ignore
-          }
-        } catch (moveError) {
-          moveErrorMessage = moveError instanceof Error ? moveError.message : 'Unknown move error';
+          const movedStat = await vscode.workspace.fs.stat(newFileUri);
+          fileMtimes.set(finalFilePath, movedStat.mtime);
+        } catch {
+          fileMtimes.delete(finalFilePath);
+        }
+      } catch (moveError) {
+        moveErrorMessage = moveError instanceof Error ? moveError.message : 'Unknown move error';
 
-          // Attempt to revert stage in the saved file to the original stage to avoid inconsistent state
-          if (frontmatterMatch && pathStage) {
+        // Attempt to revert stage in the saved file to the original stage to avoid inconsistent state
+        if (frontmatterMatch && pathStage) {
+          try {
+            const revertedFrontmatter: ParsedFrontmatter = parsedFrontmatter ? { ...parsedFrontmatter } : {};
+            revertedFrontmatter.stage = pathStage;
+            // Revert ID to match the current filename (since move failed)
+            revertedFrontmatter.id = path.basename(filePath, '.md');
+            // Revert order to original value
+            if (parsedFrontmatter && parsedFrontmatter.order) {
+              revertedFrontmatter.order = parsedFrontmatter.order;
+            } else {
+              delete revertedFrontmatter.order;
+            }
+            
+            const bodyStart = frontmatterMatch[0].length;
+            const revertedText = `---\n${serializeFrontmatter(revertedFrontmatter)}\n---${content.slice(bodyStart)}`;
+            await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(revertedText));
             try {
-              const parsed = parseFrontmatter(frontmatterMatch[1]);
-              parsed.stage = pathStage;
-              const newFrontmatter = serializeFrontmatter(parsed);
-              const bodyStart = frontmatterMatch[0].length;
-              const revertedText = `---\n${newFrontmatter}\n---${content.slice(bodyStart)}`;
-              await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(revertedText));
-              try {
-                const revertedStat = await vscode.workspace.fs.stat(uri);
-                fileMtimes.set(filePath, revertedStat.mtime);
-              } catch {
-                fileMtimes.delete(filePath);
-              }
-            } catch (revertError) {
-              console.error('Failed to revert stage after move failure:', revertError);
+              const revertedStat = await vscode.workspace.fs.stat(uri);
+              fileMtimes.set(filePath, revertedStat.mtime);
+            } catch {
               fileMtimes.delete(filePath);
             }
+          } catch (revertError) {
+            console.error('Failed to revert stage after move failure:', revertError);
+            fileMtimes.delete(filePath);
           }
         }
       }
@@ -872,6 +1029,99 @@ async function readTextIfExists(uri: vscode.Uri): Promise<string | null> {
   }
 }
 
+async function migrateLegacyStages(vibekanUri: vscode.Uri) {
+  const tasksRoot = vscode.Uri.joinPath(vibekanUri, 'tasks');
+  const legacyChatUri = vscode.Uri.joinPath(tasksRoot, 'chat');
+  const ideaUri = vscode.Uri.joinPath(tasksRoot, 'idea');
+
+  let legacyChatExists = false;
+  try {
+    await vscode.workspace.fs.stat(legacyChatUri);
+    legacyChatExists = true;
+  } catch {
+    legacyChatExists = false;
+  }
+
+  if (legacyChatExists) {
+    await ensureDirectory(ideaUri);
+    const entries = await vscode.workspace.fs.readDirectory(legacyChatUri);
+    for (const [fileName, fileType] of entries) {
+      if (fileType !== vscode.FileType.File || !fileName.endsWith('.md')) continue;
+
+      const source = vscode.Uri.joinPath(legacyChatUri, fileName);
+
+      const content = await readTextIfExists(source);
+      if (content) {
+        const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+        if (fmMatch) {
+          const parsed = parseFrontmatter(fmMatch[1]);
+          if (parsed.stage === 'chat') {
+            parsed.stage = 'idea';
+            const nextFrontmatter = serializeFrontmatter(parsed);
+            const bodyStart = fmMatch[0].length;
+            const nextText = `---\n${nextFrontmatter}\n---${content.slice(bodyStart)}`;
+            await vscode.workspace.fs.writeFile(source, Buffer.from(nextText, 'utf8'));
+          }
+        }
+      }
+
+      let target = vscode.Uri.joinPath(ideaUri, fileName);
+      const base = path.basename(fileName, '.md');
+      let counter = 1;
+      while (true) {
+        try {
+          await vscode.workspace.fs.stat(target);
+          counter += 1;
+          target = vscode.Uri.joinPath(ideaUri, `${base}-${counter}.md`);
+        } catch {
+          break;
+        }
+      }
+
+      try {
+        await vscode.workspace.fs.rename(source, target, { overwrite: false });
+      } catch (error) {
+        console.error('[Vibekan] Failed to migrate legacy chat task', fileName, error);
+      }
+    }
+
+    try {
+      await vscode.workspace.fs.delete(legacyChatUri, { recursive: true });
+    } catch {
+      // ignore delete errors
+    }
+  }
+
+  const legacyStageContext = vscode.Uri.joinPath(vibekanUri, '_context', 'stages', 'chat.md');
+  const ideaStageContext = vscode.Uri.joinPath(vibekanUri, '_context', 'stages', 'idea.md');
+
+  try {
+    await vscode.workspace.fs.stat(legacyStageContext);
+    let ideaExists = false;
+    try {
+      await vscode.workspace.fs.stat(ideaStageContext);
+      ideaExists = true;
+    } catch {
+      ideaExists = false;
+    }
+
+    if (!ideaExists) {
+      await ensureDirectory(vscode.Uri.joinPath(vibekanUri, '_context', 'stages'));
+      const content = await readTextIfExists(legacyStageContext);
+      const updated = content?.replace(/Stage:\s*chat/i, 'Stage: idea');
+      await vscode.workspace.fs.writeFile(
+        ideaStageContext,
+        Buffer.from(
+          updated ?? '# Stage: idea\n\nDescribe how tasks should be executed in this stage.\n',
+          'utf8'
+        )
+      );
+    }
+  } catch {
+    // legacy stage context not found; nothing to migrate
+  }
+}
+
 async function createTaskFile(payload: {
   title: string;
   stage: Stage;
@@ -887,26 +1137,14 @@ async function createTaskFile(payload: {
     return null;
   }
 
-  const stage: Stage = STAGES.includes(payload.stage) ? payload.stage : 'chat';
+  const stage = normalizeStage(payload.stage, 'idea') ?? 'idea';
   const tasksRoot = vscode.Uri.joinPath(vibekanUri, 'tasks');
   const stageUri = vscode.Uri.joinPath(tasksRoot, stage);
   await ensureDirectory(stageUri);
 
   const now = new Date().toISOString();
-  const baseId = `task-${slugify(payload.title)}`;
-  let uniqueId = baseId;
-  let counter = 1;
-
-  while (true) {
-    const candidateUri = vscode.Uri.joinPath(stageUri, `${uniqueId}.md`);
-    try {
-      await vscode.workspace.fs.stat(candidateUri);
-      counter += 1;
-      uniqueId = `${baseId}-${counter}`;
-    } catch {
-      break;
-    }
-  }
+  const baseSlug = slugify(payload.title);
+  const uniqueId = await ensureUniqueTaskId(stage, baseSlug, stageUri);
 
   const stageFiles = await vscode.workspace.fs.readDirectory(stageUri);
   let maxOrder = -1;
@@ -1078,10 +1316,7 @@ async function parseTaskFile(fileUri: vscode.Uri, stage: Stage): Promise<Task | 
     }
 
     const parsed = parseFrontmatter(frontmatterMatch[1]);
-    const parsedStage =
-      typeof parsed.stage === 'string' && STAGES.includes(parsed.stage as Stage)
-        ? (parsed.stage as Stage)
-        : stage;
+    const parsedStage = normalizeStage(typeof parsed.stage === 'string' ? parsed.stage : undefined, stage) ?? stage;
     
     const task: Task = {
       id: typeof parsed.id === 'string' ? parsed.id : fileName,
@@ -1140,6 +1375,7 @@ async function handleMoveTask(webview: vscode.Webview, taskId: string, fromStage
     // Find the task file
     const files = await vscode.workspace.fs.readDirectory(fromStageUri);
     let taskFileName: string | null = null;
+    let sourceTask: Task | null = null;
 
     for (const [fileName, fileType] of files) {
       if (fileType === vscode.FileType.File && fileName.endsWith('.md')) {
@@ -1147,6 +1383,7 @@ async function handleMoveTask(webview: vscode.Webview, taskId: string, fromStage
         const task = await parseTaskFile(fileUri, fromStage);
         if (task && task.id === taskId) {
           taskFileName = fileName;
+          sourceTask = task;
           break;
         }
       }
@@ -1158,7 +1395,10 @@ async function handleMoveTask(webview: vscode.Webview, taskId: string, fromStage
     }
 
     const sourceUri = vscode.Uri.joinPath(fromStageUri, taskFileName);
-    const targetUri = vscode.Uri.joinPath(toStageUri, taskFileName);
+
+    const baseSlug = sourceTask ? getBaseSlug(sourceTask.id) : getBaseSlug(taskFileName);
+    const newId = await ensureUniqueTaskId(toStage, baseSlug, toStageUri);
+    const targetUri = vscode.Uri.joinPath(toStageUri, `${newId}.md`);
 
     // Get file stats for timestamp preservation
     let sourceStats: vscode.FileStat | null = null;
@@ -1226,6 +1466,7 @@ async function handleMoveTask(webview: vscode.Webview, taskId: string, fromStage
     if (frontmatterMatch) {
       // Parse existing frontmatter and update stage/updated/order
       const parsed = parseFrontmatter(frontmatterMatch[1]);
+      parsed.id = newId;
       parsed.stage = toStage;
       parsed.updated = new Date().toISOString();
       parsed.order = String(newOrder);
@@ -1235,13 +1476,13 @@ async function handleMoveTask(webview: vscode.Webview, taskId: string, fromStage
       newText = `---\n${newFrontmatter}\n---${text.slice(bodyStart)}`;
     } else {
       // No frontmatter, create one preserving file timestamps
-      const fileName = path.basename(sourceUri.fsPath, '.md');
       const fallbackCreated = sourceStats ? new Date(sourceStats.ctime).toISOString() : new Date().toISOString();
       const fallbackUpdated = sourceStats ? new Date(sourceStats.mtime).toISOString() : new Date().toISOString();
+      const fallbackTitle = sourceTask?.title ?? newId.replace(/-/g, ' ');
       
       const newFrontmatter = serializeFrontmatter({
-        id: fileName,
-        title: fileName.replace(/-/g, ' '),
+        id: newId,
+        title: fallbackTitle,
         stage: toStage,
         created: fallbackCreated,
         updated: fallbackUpdated,
@@ -1253,7 +1494,7 @@ async function handleMoveTask(webview: vscode.Webview, taskId: string, fromStage
     await vscode.workspace.fs.writeFile(targetUri, Buffer.from(newText, 'utf8'));
     await vscode.workspace.fs.delete(sourceUri);
 
-    webview.postMessage({ type: 'taskMoved', ok: true, taskId, toStage });
+    webview.postMessage({ type: 'taskMoved', ok: true, taskId, newTaskId: newId, newFilePath: targetUri.fsPath, toStage });
     await broadcastTasks();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -1487,7 +1728,7 @@ async function handleCreateTask(webview: vscode.Webview, payload: any) {
   try {
     const created = await createTaskFile({
       title: payload?.title ?? '',
-      stage: (payload?.stage as Stage) ?? 'chat',
+      stage: normalizeStage(payload?.stage, 'idea') ?? 'idea',
       phase: payload?.phase,
       agent: payload?.agent,
       context: payload?.context,

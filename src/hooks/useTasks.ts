@@ -43,7 +43,14 @@ export const useTasks = (): UseTasksReturn => {
           if (message.ok) {
             setTasks((prev) =>
               prev.map((t) =>
-                t.id === message.taskId ? { ...t, stage: message.toStage } : t
+                t.id === message.taskId
+                  ? {
+                      ...t,
+                      id: message.newTaskId ?? t.id,
+                      stage: message.toStage,
+                      filePath: message.newFilePath ?? t.filePath,
+                    }
+                  : t
               )
             );
           }

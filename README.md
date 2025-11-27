@@ -27,7 +27,7 @@ A dedicated **Vibekan** view container is available in the VS Code Activity Bar.
 1.  **Generate Vibekan** (`vibekan.generate`): Scaffolds the `.vibekan` workspace folder and default context files if they don't exist.
 2.  **Open Vibekan View** (`vibekan.openBoard`): Opens the main Kanban board webview with full drag-and-drop functionality.
 3.  **Settings** (`vibekan.openSettings`): Opens the VS Code settings filtered to `vibekan` configuration.
-4.  **Quick Create Navbar (Phase C)**: Inline glass toolbar for creating tasks, phases, agents, contexts, and jumping to `architecture.md` without leaving the sidebar.
+4.  **Quick Create Navbar (Phase C)**: Inline glass toolbar for creating tasks, phases, agents, contexts, and jumping to `architecture.md`; available in the sidebar and board topbar.
 5.  **Task Tree (Phase C)**: Phase → Stage → Task hierarchy with move/duplicate/delete actions and “open file” shortcuts.
 6.  **Task Modal (Phase C)**: Glassmorphic modal for creating tasks with stage, phase, agent, context, tags, and content; remembers last selections.
 
@@ -35,7 +35,7 @@ A dedicated **Vibekan** view container is available in the VS Code Activity Bar.
 A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 
 **Features:**
-- **6 Stage Columns**: Chat, Queue, Plan, Code, Audit, Completed
+- **6 Stage Columns**: Idea, Queue, Plan, Code, Audit, Completed
 - **Drag-and-Drop**: Move tasks between stages with visual feedback
   - Cross-column moves with intelligent order assignment
   - Within-column reordering with instant persistence
@@ -47,10 +47,11 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 - **Open File Shortcut (Phase C)**:
   - Hover icon, double-click, or `Enter` on a task card opens the underlying markdown file in the editor
 - **Order Persistence**: Task positions saved to disk with `order` field in frontmatter
+- **Stage-Prefixed Filenames**: Tasks persist as `[stage]-slug.md` and rename automatically when stages change; legacy `task-*` files continue to load.
 - **Smart Sorting**: Tasks sorted by order (undefined orders sort to end)
 - **Timestamp Preservation**: File timestamps maintained when creating frontmatter
 
-**Note**: Task creation UI coming in Phase C. Currently tasks must be created manually as `.md` files in `.vibekan/tasks/<stage>/` folders.
+**Note**: Task creation is available via the sidebar and board topbar quick-create/task modal; manual `.md` creation is still supported for power users.
 
 ### Copy-With-Context (Phase D ✅ Completed)
 - **Copy modes:** Full Context (default), Task Only, Context Only; selectable via dropdown on each card and command palette commands.
@@ -72,7 +73,7 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 ### Visual Themes & Motion (Phase F — In Progress)
 - **Two presets:** `dark-glass` (default) and `low-glow` (higher contrast, lower glow).
 - **Reduced motion:** Respects system `prefers-reduced-motion` and `vibekan.reducedMotion`; disables ambient edge animation, tones down blurs/shadows, removes spinners.
-- **Topbar controls:** Board topbar toggle for theme preset + reduced motion (synced to VS Code settings).
+- **Settings-driven:** Theme preset and reduced motion now follow VS Code settings only (runtime toggles removed for simplicity).
 - **Unified tokens:** Shared color/blur/shadow/motion tokens across board, sidebar, modals, toasts, and tree.
 
 ### Configuration (VS Code Settings)
@@ -92,7 +93,7 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 │   │   └── architecture.md     # High-level project architecture summary
 │   └── tasks/                  # Kanban columns/stages
 │       ├── audit/
-│       ├── chat/
+│       ├── idea/
 │       ├── code/
 │       ├── completed/
 │       ├── plan/
@@ -117,8 +118,7 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 │   │   ├── Sidebar.tsx         # Sidebar view component (launcher, quick-create, tree)
 │   │   ├── QuickCreateBar.tsx  # Quick create toolbar (tasks/phase/agent/context/architecture)
 │   │   ├── TaskModal.tsx       # Task creation modal
-│   │   ├── TaskTree.tsx        # Phase → Stage → Task hierarchy
-│   │   └── ThemeControls.tsx   # Board topbar theme + reduced-motion toggle
+│   │   └── TaskTree.tsx        # Phase → Stage → Task hierarchy
 │   ├── hooks/                  # React hooks
 │   │   └── useTasks.ts         # Task loading and state management hook
 │   ├── types/                  # TypeScript type definitions
