@@ -51,6 +51,14 @@
         "title": "Vibekan: Copy Context Only"
       }
     ],
+    "keybindings": [
+      {
+        "command": "vibekan.openBoard",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "!editorTextFocus"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {

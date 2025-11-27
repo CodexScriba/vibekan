@@ -1,4 +1,4 @@
-export type Stage = 'idea' | 'queue' | 'plan' | 'code' | 'audit' | 'completed';
+export type Stage = 'idea' | 'queue' | 'plan' | 'code' | 'audit' | 'completed' | 'archive';
 
 export interface Task {
   id: string;
@@ -16,7 +16,11 @@ export interface Task {
   order?: number;
 }
 
+// STAGES used for board columns (excludes archive)
 export const STAGES: Stage[] = ['idea', 'queue', 'plan', 'code', 'audit', 'completed'];
+
+// ALL_STAGES includes archive for file operations
+export const ALL_STAGES: Stage[] = ['idea', 'queue', 'plan', 'code', 'audit', 'completed', 'archive'];
 
 export const STAGE_LABELS: Record<Stage, string> = {
   idea: 'Idea',
@@ -25,6 +29,7 @@ export const STAGE_LABELS: Record<Stage, string> = {
   code: 'Code',
   audit: 'Audit',
   completed: 'Completed',
+  archive: 'Archive',
 };
 
 export const STAGE_ICONS: Record<Stage, string> = {
@@ -34,4 +39,5 @@ export const STAGE_ICONS: Record<Stage, string> = {
   code: '💻',
   audit: '🔍',
   completed: '✅',
+  archive: '📦',
 };

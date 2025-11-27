@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ExternalLink, Pencil } from 'lucide-react';
+import { ExternalLink, Pencil, Trash2, Archive, ArchiveRestore } from 'lucide-react';
 import { Task } from '../types/task';
 import { CopyMode } from '../types/copy';
 import { getVsCodeApi } from '../utils/vscode';
@@ -15,6 +15,10 @@ interface TaskCardProps {
   forceDropdownOpen?: boolean;
   onDropdownClose?: () => void;
   onEditFile?: (task: Task) => void;
+  onDeleteTask?: (task: Task) => void;
+  onDuplicateTask?: (task: Task) => void;
+  onArchiveTask?: (task: Task) => void;
+  onUnarchiveTask?: (task: Task) => void;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -25,9 +29,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   forceDropdownOpen,
   onDropdownClose,
   onEditFile,
+  onDeleteTask,
+  onDuplicateTask,
+  onArchiveTask,
+  onUnarchiveTask,
 }) => {
   const vscode = getVsCodeApi();
-  
+
   const {
     attributes,
     listeners,
@@ -55,6 +63,26 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     onEditFile?.(task);
   };
 
+  const handleDelete = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    onDeleteTask?.(task);
+  };
+
+  const handleDuplicate = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    onDuplicateTask?.(task);
+  };
+
+  const handleArchive = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    onArchiveTask?.(task);
+  };
+
+  const handleUnarchive = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    onUnarchiveTask?.(task);
+  };
+
   const handleClick = () => {
     onSelect?.(task.id);
   };
@@ -62,10 +90,33 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleOpenFile();
+      return;
     }
     if (e.key === 'e' || e.key === 'E') {
       e.preventDefault();
       handleEditFile();
+      return;
+    }
+    if ((e.key === 'd' || e.key === 'D') && e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleDuplicate();
+      return;
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace' || e.key === 'd' || e.key === 'D') {
+      e.preventDefault();
+      e.stopPropagation();
+      handleDelete();
+      return;
+    }
+    if (e.key === 'a' || e.key === 'A') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (task.stage === 'archive') {
+        handleUnarchive();
+      } else {
+        handleArchive();
+      }
     }
   };
 
@@ -101,6 +152,34 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             aria-label="Open task file"
           >
             <ExternalLink size={14} />
+          </button>
+          {task.stage === 'completed' && (
+            <button
+              className="task-card-archive"
+              onClick={handleArchive}
+              title="Archive task (A)"
+              aria-label="Archive task"
+            >
+              <Archive size={14} />
+            </button>
+          )}
+          {task.stage === 'archive' && (
+            <button
+              className="task-card-unarchive"
+              onClick={handleUnarchive}
+              title="Unarchive task (A)"
+              aria-label="Unarchive task"
+            >
+              <ArchiveRestore size={14} />
+            </button>
+          )}
+          <button
+            className="task-card-delete"
+            onClick={handleDelete}
+            title="Delete task (D)"
+            aria-label="Delete task"
+          >
+            <Trash2 size={14} />
           </button>
         </div>
       </div>

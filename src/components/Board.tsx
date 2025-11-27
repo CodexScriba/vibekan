@@ -13,8 +13,8 @@ import {
   CollisionDetection,
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
-import { Copy, Search } from 'lucide-react';
-import { Task, Stage, STAGES } from '../types/task';
+import { Copy, Search, Archive } from 'lucide-react';
+import { Task, Stage, STAGES, STAGE_LABELS, STAGE_ICONS } from '../types/task';
 import { CopyMode, CopySettings, CopyErrorMessage, CopySettingsMessage, CopySuccessMessage } from '../types/copy';
 import { Column } from './Column';
 import { useTasks } from '../hooks/useTasks';
@@ -25,11 +25,27 @@ import { EditorModal } from './EditorModal';
 import { QuickCreateBar } from './QuickCreateBar';
 import { TaskModal, TaskModalPayload } from './TaskModal';
 import { CreateEntityModal } from './modals/CreateEntityModal';
+import { HelpOverlay } from './HelpOverlay';
 
 const MODE_LABELS: Record<CopyMode, string> = {
   full: 'Full Context',
   task: 'Task Only',
   context: 'Context Only',
+};
+
+const STAGE_HOTKEYS: Record<string, Stage> = {
+  '1': 'idea',
+  '2': 'queue',
+  '3': 'plan',
+  '4': 'code',
+  '5': 'audit',
+  '6': 'completed',
+};
+
+const isTypingElement = (element: HTMLElement | null) => {
+  if (!element) return false;
+  const tag = element.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || element.isContentEditable;
 };
 
 // Custom collision detection that prioritizes column droppables when no task is intersected
@@ -112,10 +128,26 @@ export const Board: React.FC = () => {
   });
   const [workspaceExists, setWorkspaceExists] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showHelpOverlay, setShowHelpOverlay] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const originalStageRef = useRef<Stage | null>(null);
   const lastOverIdRef = useRef<string | null>(null);
   const vscode = getVsCodeApi();
+  const shortcutItems = [
+    { keys: 'Arrow Keys', description: 'Move focus between tasks and columns' },
+    { keys: 'Enter', description: 'Open task file in editor' },
+    { keys: 'E', description: 'Edit task in popup editor' },
+    { keys: 'C', description: 'Copy prompt (default mode)' },
+    { keys: 'Ctrl/Cmd+Shift+C', description: 'Open copy dropdown on selected task' },
+    { keys: 'N', description: 'Create a new task' },
+    { keys: 'Delete or D', description: 'Delete selected task' },
+    { keys: 'Shift+D', description: 'Duplicate selected task' },
+    { keys: '1-6', description: 'Move task to Idea -> Completed' },
+    { keys: '/ or Ctrl/Cmd+F', description: 'Focus the board search bar' },
+    { keys: 'A', description: 'Archive task (Completed column only)' },
+    { keys: '?', description: 'Toggle this help overlay' },
+  ];
 
   const handleEditFile = useCallback((task: Task) => {
     setEditorTask(task);
@@ -136,6 +168,15 @@ export const Board: React.FC = () => {
   const handleOpenTemplates = useCallback(() => {
     vscode?.postMessage({ command: 'openTemplatesFolder' });
   }, [vscode]);
+
+  const focusSearchInput = useCallback(() => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+      if (typeof searchInputRef.current.select === 'function') {
+        searchInputRef.current.select();
+      }
+    }
+  }, []);
 
   const handleNewTask = useCallback(() => {
     if (!workspaceExists) return;
@@ -253,6 +294,38 @@ export const Board: React.FC = () => {
         }
         return;
       }
+
+      if ((message as any).type === 'taskDeleted') {
+        const payload = message as any;
+        if (copySettings.showToast) {
+          setToast({
+            message: `Deleted "${payload.taskTitle}"`,
+            kind: 'success',
+            duration: copySettings.toastDuration,
+          });
+        }
+        
+        // Focus next/previous card if the deleted task was selected
+        if (payload.taskId === selectedTaskId) {
+          const stage = payload.taskStage as Stage;
+          const stageTasks = tasks.filter(t => t.stage === stage && t.id !== payload.taskId);
+          if (stageTasks.length > 0) {
+            setSelectedTaskId(stageTasks[0].id);
+          } else {
+            // No more tasks in this stage, try adjacent stages
+            const stageIndex = STAGES.indexOf(stage);
+            for (let i = 1; i < STAGES.length; i++) {
+              const nextStageIndex = (stageIndex + i) % STAGES.length;
+              const nextStageTasks = tasks.filter(t => t.stage === STAGES[nextStageIndex] && t.id !== payload.taskId);
+              if (nextStageTasks.length > 0) {
+                setSelectedTaskId(nextStageTasks[0].id);
+                break;
+              }
+            }
+          }
+        }
+        return;
+      }
     };
 
     window.addEventListener('message', handler);
@@ -280,7 +353,7 @@ export const Board: React.FC = () => {
   const getTasksByStage = useCallback(
     (stage: Stage): Task[] => {
       let filtered = tasks.filter((t) => t.stage === stage);
-      
+
       if (searchQuery.trim()) {
         const query = searchQuery.trim().toLowerCase();
         filtered = filtered.filter(task => {
@@ -292,10 +365,86 @@ export const Board: React.FC = () => {
           return titleMatch || tagMatch || phaseMatch || agentMatch || contentMatch;
         });
       }
-      
+
       return filtered;
     },
     [tasks, searchQuery]
+  );
+
+  const getArchivedTasks = useCallback((): Task[] => {
+    let filtered = tasks.filter((t) => t.stage === 'archive');
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter(task => {
+        const titleMatch = task.title.toLowerCase().includes(query);
+        const tagMatch = task.tags?.some(tag => tag.toLowerCase().includes(query));
+        const phaseMatch = task.phase?.toLowerCase().includes(query);
+        const agentMatch = task.agent?.toLowerCase().includes(query);
+        const contentMatch = task.userContent?.toLowerCase().includes(query);
+        return titleMatch || tagMatch || phaseMatch || agentMatch || contentMatch;
+      });
+    }
+
+    return filtered;
+  }, [tasks, searchQuery]);
+
+  const archivedTasks = getArchivedTasks();
+
+  const handleDeleteTask = useCallback(
+    (task: Task) => {
+      if (!vscode) return;
+      const stageTasks = getTasksByStage(task.stage);
+      const currentIndex = stageTasks.findIndex((t) => t.id === task.id);
+      const fallback = stageTasks[currentIndex + 1] ?? stageTasks[currentIndex - 1];
+
+      vscode.postMessage({ command: 'deleteTask', taskId: task.id });
+      setTasks((prev) => prev.filter((t) => t.id !== task.id));
+      setSelectedTaskId(fallback?.id);
+    },
+    [getTasksByStage, setTasks, vscode]
+  );
+
+  const handleDuplicateTask = useCallback(
+    (task: Task) => {
+      if (!vscode) return;
+      vscode.postMessage({ command: 'duplicateTask', taskId: task.id });
+    },
+    [vscode]
+  );
+
+  const handleMoveTaskToStage = useCallback(
+    (task: Task, targetStage: Stage) => {
+      if (!vscode || task.stage === targetStage) return;
+
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, stage: targetStage } : t))
+      );
+
+      vscode.postMessage({
+        command: 'moveTask',
+        taskId: task.id,
+        fromStage: task.stage,
+        toStage: targetStage,
+      });
+    },
+    [setTasks, vscode]
+  );
+
+  const handleArchiveTask = useCallback(
+    (task: Task) => {
+      if (!vscode || task.stage !== 'completed') return;
+      vscode.postMessage({ command: 'archiveTask', taskId: task.id });
+    },
+    [vscode]
+  );
+
+  const handleUnarchiveTask = useCallback(
+    (task: Task) => {
+      if (!vscode || task.stage !== 'archive') return;
+      vscode.postMessage({ command: 'unarchiveTask', taskId: task.id });
+    },
+    [vscode]
   );
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -432,8 +581,38 @@ export const Board: React.FC = () => {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // Ignore if typing in an input or textarea
-      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
+      if (e.defaultPrevented) return;
+
+      const targetElement = e.target as HTMLElement | null;
+      if (isTypingElement(targetElement) || isTypingElement(document.activeElement as HTMLElement | null)) {
+        return;
+      }
+
+      if (e.key === '?' && !showHelpOverlay) {
+        e.preventDefault();
+        setShowHelpOverlay(true);
+        return;
+      }
+
+      if ((e.key === '/' && !e.metaKey && !e.ctrlKey) || ((e.key === 'f' || e.key === 'F') && (e.metaKey || e.ctrlKey))) {
+        e.preventDefault();
+        focusSearchInput();
+        return;
+      }
+
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        handleNewTask();
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        if (openCopyMenuFor) {
+          setOpenCopyMenuFor(null);
+        }
+        if (showHelpOverlay) {
+          setShowHelpOverlay(false);
+        }
         return;
       }
 
@@ -449,6 +628,31 @@ export const Board: React.FC = () => {
       if ((e.key === 'c' || e.key === 'C') && e.shiftKey && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         setOpenCopyMenuFor(selectedTaskId);
+        return;
+      }
+
+      const targetStage = STAGE_HOTKEYS[e.key];
+      if (targetStage) {
+        e.preventDefault();
+        handleMoveTaskToStage(currentTask, targetStage);
+        return;
+      }
+
+      if ((e.key === 'd' || e.key === 'D') && e.shiftKey) {
+        e.preventDefault();
+        handleDuplicateTask(currentTask);
+        return;
+      }
+
+      if (e.key === 'Delete' || e.key === 'Backspace' || e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        handleDeleteTask(currentTask);
+        return;
+      }
+
+      if (e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        handleArchiveTask(currentTask);
         return;
       }
 
@@ -501,31 +705,51 @@ export const Board: React.FC = () => {
           }
           break;
         }
-        case 'Escape': {
-          if (openCopyMenuFor) {
-            setOpenCopyMenuFor(null);
-          }
-          break;
-        }
       }
     },
-    [selectedTaskId, tasks, getTasksByStage, vscode, copySettings.defaultMode, openCopyMenuFor]
+    [
+      selectedTaskId,
+      tasks,
+      getTasksByStage,
+      vscode,
+      copySettings.defaultMode,
+      openCopyMenuFor,
+      handleMoveTaskToStage,
+      handleDuplicateTask,
+      handleDeleteTask,
+      handleArchiveTask,
+      showHelpOverlay,
+      focusSearchInput,
+      handleNewTask,
+    ]
   );
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (isTypingElement(activeElement)) return;
+
       if ((e.key === '/' || (e.key === 'f' && (e.metaKey || e.ctrlKey))) && !e.repeat) {
-        // Prevent default only if we're not already in an input
-        if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
-          e.preventDefault();
-          searchInputRef.current?.focus();
-        }
+        e.preventDefault();
+        focusSearchInput();
+        return;
+      }
+
+      if (e.key === '?' && !e.repeat) {
+        e.preventDefault();
+        setShowHelpOverlay(true);
+        return;
+      }
+
+      if (e.key === 'Escape' && showHelpOverlay) {
+        e.preventDefault();
+        setShowHelpOverlay(false);
       }
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, []);
+  }, [focusSearchInput, showHelpOverlay]);
 
   if (loading) {
     return (
@@ -570,6 +794,20 @@ export const Board: React.FC = () => {
           disabled={!workspaceExists}
           showLabels={true}
         />
+        <button
+          className={`board-archive-toggle ${showArchived ? 'active' : ''}`}
+          onClick={() => setShowArchived(!showArchived)}
+          title={showArchived ? 'Hide archived tasks' : 'Show archived tasks'}
+          aria-label={showArchived ? 'Hide archived tasks' : 'Show archived tasks'}
+        >
+          <Archive size={16} />
+          <span className="archive-toggle-label">
+            {showArchived ? 'Hide Archived' : 'Show Archived'}
+          </span>
+          {archivedTasks.length > 0 && (
+            <span className="archive-count">{archivedTasks.length}</span>
+          )}
+        </button>
       </div>
       <div className="board-content">
         <DndContext
@@ -591,8 +829,27 @@ export const Board: React.FC = () => {
                 openCopyMenuFor={openCopyMenuFor}
                 onCloseCopyMenu={() => setOpenCopyMenuFor(null)}
                 onEditFile={handleEditFile}
+                onDeleteTask={handleDeleteTask}
+                onDuplicateTask={handleDuplicateTask}
+                onArchiveTask={handleArchiveTask}
               />
             ))}
+            {showArchived && (
+              <Column
+                key="archive"
+                stage="archive"
+                tasks={archivedTasks}
+                selectedTaskId={selectedTaskId}
+                onSelectTask={setSelectedTaskId}
+                defaultCopyMode={copySettings.defaultMode}
+                openCopyMenuFor={openCopyMenuFor}
+                onCloseCopyMenu={() => setOpenCopyMenuFor(null)}
+                onEditFile={handleEditFile}
+                onDeleteTask={handleDeleteTask}
+                onDuplicateTask={handleDuplicateTask}
+                onUnarchiveTask={handleUnarchiveTask}
+              />
+            )}
           </div>
 
           <DragOverlay>
@@ -627,6 +884,11 @@ export const Board: React.FC = () => {
           type={entityModal.type}
           onCancel={() => setEntityModal((prev) => ({ ...prev, open: false }))}
           onSubmit={handleCreateEntity}
+        />
+        <HelpOverlay
+          open={showHelpOverlay}
+          onClose={() => setShowHelpOverlay(false)}
+          shortcuts={shortcutItems}
         />
       </div>
     </div>

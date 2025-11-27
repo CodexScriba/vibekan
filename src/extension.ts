@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { Task, STAGES, Stage } from './types/task';
+import { Task, STAGES, ALL_STAGES, Stage } from './types/task';
 import { CopyMode, CopySettings } from './types/copy';
 import { PromptBuilder } from './utils/promptBuilder';
 import { TaskTemplate } from './types/template';
@@ -43,7 +43,8 @@ const LEGACY_STAGE_ALIASES: Record<string, Stage> = {
 function normalizeStage(input?: string, fallback: Stage | undefined = 'idea'): Stage | undefined {
   if (!input) return fallback;
   const value = input.toLowerCase();
-  if (STAGES.includes(value as Stage)) {
+  // Use ALL_STAGES to include archive
+  if (ALL_STAGES.includes(value as Stage)) {
     return value as Stage;
   }
   if (LEGACY_STAGE_ALIASES[value]) {
@@ -64,7 +65,8 @@ function slugify(input: string): string {
 function getBaseSlug(idOrFileName: string): string {
   const trimmed = idOrFileName.replace(/\.md$/, '');
   const lower = trimmed.toLowerCase();
-  for (const stage of STAGES) {
+  // Use ALL_STAGES to include archive
+  for (const stage of ALL_STAGES) {
     const prefix = `${stage}-`;
     if (lower.startsWith(prefix)) {
       return trimmed.slice(prefix.length);
@@ -118,7 +120,8 @@ async function ensureVibekanRoot(): Promise<vscode.Uri | null> {
 async function scaffoldVibekanWorkspace(vibekanUri: vscode.Uri) {
   await vscode.workspace.fs.createDirectory(vibekanUri);
 
-  const stageDirs = STAGES.map((stage) => `tasks/${stage}`);
+  // Use ALL_STAGES to include archive folder
+  const stageDirs = ALL_STAGES.map((stage) => `tasks/${stage}`);
   const dirs = [...stageDirs, '_context/stages', '_context/phases', '_context/agents', '_context/custom', '_templates'];
   for (const dir of dirs) {
     await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(vibekanUri, dir));
@@ -131,7 +134,8 @@ async function scaffoldVibekanWorkspace(vibekanUri: vscode.Uri) {
     },
   ];
 
-  for (const stage of STAGES) {
+  // Create stage context files for all stages including archive
+  for (const stage of ALL_STAGES) {
     files.push({
       path: `_context/stages/${stage}.md`,
       contents: `# Stage: ${stage}\n\nDescribe how tasks should be executed in this stage.\n`,
@@ -391,6 +395,12 @@ export function activate(context: vscode.ExtensionContext) {
           case 'duplicateTask':
             await handleDuplicateTask(panel.webview, message.taskId);
             break;
+          case 'archiveTask':
+            await handleArchiveTask(panel.webview, message.taskId);
+            break;
+          case 'unarchiveTask':
+            await handleUnarchiveTask(panel.webview, message.taskId);
+            break;
           case 'readTaskFile':
             await handleReadTaskFile(panel.webview, message.filePath);
             break;
@@ -516,6 +526,12 @@ class VibekanSidebarProvider implements vscode.WebviewViewProvider {
           case 'duplicateTask':
             await handleDuplicateTask(webviewView.webview, data.taskId);
             break;
+          case 'archiveTask':
+            await handleArchiveTask(webviewView.webview, data.taskId);
+            break;
+          case 'unarchiveTask':
+            await handleUnarchiveTask(webviewView.webview, data.taskId);
+            break;
           case 'openTaskFile':
             await openFileInEditor(data.filePath);
             break;
@@ -637,7 +653,8 @@ async function loadTasksList(): Promise<Task[] | null> {
 
   const tasks: Task[] = [];
 
-  const stageSources: Array<{ stage: Stage; uri: vscode.Uri }> = STAGES.map((stage) => ({
+  // Use ALL_STAGES to include archive folder when loading tasks
+  const stageSources: Array<{ stage: Stage; uri: vscode.Uri }> = ALL_STAGES.map((stage) => ({
     stage,
     uri: vscode.Uri.joinPath(tasksUri, stage),
   }));
@@ -2053,6 +2070,20 @@ async function handleDeleteTask(taskId: string) {
 
   try {
     await vscode.workspace.fs.delete(vscode.Uri.file(target.filePath));
+    
+    const payload = {
+      type: 'taskDeleted',
+      taskId: target.id,
+      taskTitle: target.title,
+      taskStage: target.stage,
+    };
+    if (sidebarWebview) {
+      sidebarWebview.postMessage(payload);
+    }
+    if (boardWebview) {
+      boardWebview.postMessage(payload);
+    }
+    
     await broadcastTasks();
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to delete task';
@@ -2085,6 +2116,48 @@ async function handleDuplicateTask(webview: vscode.Webview, taskId: string) {
 
   webview.postMessage({ type: 'taskCreated', task: created });
   await broadcastTasks();
+}
+
+async function handleArchiveTask(webview: vscode.Webview, taskId: string) {
+  const tasks = await loadTasksList();
+  if (!tasks) return;
+  const existing = tasks.find((t) => t.id === taskId);
+  if (!existing) return;
+
+  // Only allow archiving completed tasks
+  if (existing.stage !== 'completed') {
+    vscode.window.showWarningMessage('Only completed tasks can be archived.');
+    return;
+  }
+
+  try {
+    await handleMoveTask(webview, taskId, existing.stage, 'archive');
+    vscode.window.showInformationMessage(`Task "${existing.title}" archived.`);
+  } catch (e) {
+    console.error('Failed to archive task:', e);
+    vscode.window.showErrorMessage('Failed to archive task.');
+  }
+}
+
+async function handleUnarchiveTask(webview: vscode.Webview, taskId: string) {
+  const tasks = await loadTasksList();
+  if (!tasks) return;
+  const existing = tasks.find((t) => t.id === taskId);
+  if (!existing) return;
+
+  // Only allow unarchiving archived tasks
+  if (existing.stage !== 'archive') {
+    vscode.window.showWarningMessage('Only archived tasks can be unarchived.');
+    return;
+  }
+
+  try {
+    await handleMoveTask(webview, taskId, existing.stage, 'completed');
+    vscode.window.showInformationMessage(`Task "${existing.title}" unarchived.`);
+  } catch (e) {
+    console.error('Failed to unarchive task:', e);
+    vscode.window.showErrorMessage('Failed to unarchive task.');
+  }
 }
 
 function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, viewType: 'sidebar' | 'board') {

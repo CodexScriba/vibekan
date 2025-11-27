@@ -29,7 +29,8 @@ A dedicated **Vibekan** view container is available in the VS Code Activity Bar.
 3.  **Settings** (`vibekan.openSettings`): Opens the VS Code settings filtered to `vibekan` configuration.
 4.  **Quick Create Navbar (Phase C)**: Inline glass toolbar for creating tasks, phases, agents, contexts, opening the templates folder, and jumping to `architecture.md`; available in the sidebar and board topbar.
 5.  **Task Tree (Phase C)**: Phase → Stage → Task hierarchy with move/duplicate/delete actions and “open file” shortcuts.
-6.  **Task Modal (Phase C)**: Glassmorphic modal for creating tasks with stage, phase, agent, context, tags, and content; includes a template dropdown + live preview and remembers last selections.
+6.  **Task Modal (Phase C)**: Glassmorphic modal for creating tasks with stage, phase, agent, contexts, tags, and content; includes a template dropdown + live preview and remembers last selections.
+7.  **Keyboard Launch** (`Ctrl/Cmd+Shift+V`): Opens the Vibekan board when focus is outside the text editor to avoid clashing with VS Code’s Markdown preview binding.
 
 ### Kanban Board (Phase B ✅ Completed)
 A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
@@ -40,10 +41,15 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
   - Cross-column moves with intelligent order assignment
   - Within-column reordering with instant persistence
   - Drag-cancel restores original position
-- **Task Cards**: Display title, phase badge, tags, and agent
+- **Task Cards**: Display title, phase badge, tags, agent, and context badges (multi-context supported)
 - **Keyboard Navigation**:
-  - Arrow keys to navigate between cards and columns
+  - Arrow keys to navigate between cards and columns; `Enter` opens the task file; `E` opens the inline editor
   - `C` key copies prompt using the configured default copy mode; `Ctrl/Cmd+Shift+C` opens the copy dropdown on the selected card
+  - `N` opens the new task modal; `Delete`/`Backspace`/`D` deletes the selected task; `Shift+D` duplicates it
+  - Number keys `1-6` move the selected task to Idea → Completed; `A` archives when the task is already in Completed
+  - `/` or `Ctrl/Cmd+F` focuses the search bar; `?` opens an in-board shortcut help overlay
+- **Archive Toggle**: Archived tasks live in a hidden stage; `A` or the archive icon moves completed tasks into archive, topbar toggle reveals the archive column, unarchive button returns tasks to Completed.
+- **Delete Action**: Hover delete icon, keyboard shortcut, or context menu to delete tasks directly from the board with toast notification and automatic focus management
 - **Open File Shortcut (Phase C)**:
   - Hover icon, double-click, or `Enter` on a task card opens the underlying markdown file in the editor
 - **Order Persistence**: Task positions saved to disk with `order` field in frontmatter
@@ -74,12 +80,12 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 - **Security:** Path validation prevents directory traversal attacks; cross-platform compatible (Windows/Linux/macOS).
 - **Local Monaco:** Monaco Editor bundled locally to comply with VSCode webview CSP (no CDN dependencies).
 
-### Task Templates (Phase C)
+### Task Templates (Phase C ✅ Completed)
 - **Template Source:** Markdown files in `.vibekan/_templates/` (Bug/Feature/Spike, etc.) with placeholders for `{{title}}`, `{{stage}}`, `{{phase}}`, `{{agent}}`, `{{contexts}}`, `{{tags}}`, and `{{content}}`.
 - **Modal Support:** Template dropdown + live rendered preview; falls back to a built-in default template if the folder is missing/empty.
 - **Quick Access:** "📝 Templates" shortcut in both Quick Create toolbars opens the templates folder in the OS file explorer.
 
-### Visual Themes & Motion (Phase F — In Progress)
+### Visual Themes & Motion (Settings-driven; runtime toggles removed)
 - **Two presets:** `dark-glass` (default) and `low-glow` (higher contrast, lower glow).
 - **Reduced motion:** Respects system `prefers-reduced-motion` and `vibekan.reducedMotion`; disables ambient edge animation, tones down blurs/shadows, removes spinners.
 - **Settings-driven:** Theme preset and reduced motion now follow VS Code settings only (runtime toggles removed for simplicity).
@@ -89,6 +95,11 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 - `vibekan.copyMode.*` — copy defaults, architecture inclusion, XML formatting, toast visibility/duration.
 - `vibekan.theme` — `dark-glass` | `low-glow` (webview + settings stay in sync).
 - `vibekan.reducedMotion` — boolean; overrides system motion preference for Vibekan UI.
+
+## Testing
+- `npm test` runs `tsc` then Vitest.
+- Current status: all tests passing.
+- Notes: React `act` warnings surface in `tests/metadata_editor.test.tsx`, but assertions pass; wrap state-updating events in `act` if you want a quiet run.
 
 ## Project File Tree
 
@@ -106,6 +117,7 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 │       ├── idea/
 │       ├── code/
 │       ├── completed/
+│       ├── archive/
 │       ├── plan/
 │       └── queue/
 ├── archive/                    # Deprecated planning documents

@@ -1,0 +1,343 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Board keyboard shortcuts > matches snapshot after opening help overlay 1`] = `
+<div
+  class="board-container"
+  tabindex="0"
+>
+  <div
+    class="board-topbar"
+  >
+    <div
+      class="board-topbar-title"
+    >
+      Vibekan Board
+    </div>
+    <div
+      class="board-search"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-search board-search-icon"
+        fill="none"
+        height="14"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="14"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="m21 21-4.34-4.34"
+        />
+        <circle
+          cx="11"
+          cy="11"
+          r="8"
+        />
+      </svg>
+      <input
+        class="board-search-input"
+        placeholder="Search tasks... (/)"
+        type="text"
+        value=""
+      />
+    </div>
+    <div
+      data-testid="quick-create"
+    >
+      Quick Create
+    </div>
+    <button
+      aria-label="Show archived tasks"
+      class="board-archive-toggle "
+      title="Show archived tasks"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-archive"
+        fill="none"
+        height="16"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="16"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect
+          height="5"
+          rx="1"
+          width="20"
+          x="2"
+          y="3"
+        />
+        <path
+          d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"
+        />
+        <path
+          d="M10 12h4"
+        />
+      </svg>
+      <span
+        class="archive-toggle-label"
+      >
+        Show Archived
+      </span>
+    </button>
+  </div>
+  <div
+    class="board-content"
+  >
+    <div>
+      <div
+        class="board-columns"
+      >
+        <div
+          data-testid="column-idea"
+        />
+        <div
+          data-testid="column-queue"
+        >
+          <button
+            data-testid="task-task-queue"
+          >
+            Queue Task
+          </button>
+        </div>
+        <div
+          data-testid="column-plan"
+        />
+        <div
+          data-testid="column-code"
+        />
+        <div
+          data-testid="column-audit"
+        />
+        <div
+          data-testid="column-completed"
+        >
+          <button
+            data-testid="task-task-completed"
+          >
+            Completed Task
+          </button>
+        </div>
+      </div>
+      <div />
+    </div>
+    <div
+      aria-modal="true"
+      class="help-overlay-backdrop"
+      role="dialog"
+    >
+      <div
+        class="help-overlay"
+      >
+        <div
+          class="help-overlay-header"
+        >
+          <div>
+            <div
+              class="help-overlay-title"
+            >
+              Keyboard Shortcuts
+            </div>
+            <div
+              class="help-overlay-subtitle"
+            >
+              Stay on the keyboard—no mouse required.
+            </div>
+          </div>
+          <button
+            aria-label="Close help overlay"
+            class="help-overlay-close"
+          >
+            ×
+          </button>
+        </div>
+        <div
+          class="help-overlay-grid"
+        >
+          <div
+            class="help-shortcut"
+          >
+            <span
+              class="help-shortcut-keys"
+            >
+              Arrow Keys
+            </span>
+            <span
+              class="help-shortcut-desc"
+            >
+              Move focus between tasks and columns
+            </span>
+          </div>
+          <div
+            class="help-shortcut"
+          >
+            <span
+              class="help-shortcut-keys"
+            >
+              Enter
+            </span>
+            <span
+              class="help-shortcut-desc"
+            >
+              Open task file in editor
+            </span>
+          </div>
+          <div
+            class="help-shortcut"
+          >
+            <span
+              class="help-shortcut-keys"
+            >
+              E
+            </span>
+            <span
+              class="help-shortcut-desc"
+            >
+              Edit task in popup editor
+            </span>
+          </div>
+          <div
+            class="help-shortcut"
+          >
+            <span
+              class="help-shortcut-keys"
+            >
+              C
+            </span>
+            <span
+              class="help-shortcut-desc"
+            >
+              Copy prompt (default mode)
+            </span>
+          </div>
+          <div
+            class="help-shortcut"
+          >
+            <span
+              class="help-shortcut-keys"
+            >
+              Ctrl/Cmd+Shift+C
+            </span>
+            <span
+              class="help-shortcut-desc"
+            >
+              Open copy dropdown on selected task
+            </span>
+          </div>
+          <div
+            class="help-shortcut"
+          >
+            <span
+              class="help-shortcut-keys"
+            >
+              N
+            </span>
+            <span
+              class="help-shortcut-desc"
+            >
+              Create a new task
+            </span>
+          </div>
+          <div
+            class="help-shortcut"
+          >
+            <span
+              class="help-shortcut-keys"
+            >
+              Delete or D
+            </span>
+            <span
+              class="help-shortcut-desc"
+            >
+              Delete selected task
+            </span>
+          </div>
+          <div
+            class="help-shortcut"
+          >
+            <span
+              class="help-shortcut-keys"
+            >
+              Shift+D
+            </span>
+            <span
+              class="help-shortcut-desc"
+            >
+              Duplicate selected task
+            </span>
+          </div>
+          <div
+            class="help-shortcut"
+          >
+            <span
+              class="help-shortcut-keys"
+            >
+              1-6
+            </span>
+            <span
+              class="help-shortcut-desc"
+            >
+              Move task to Idea -&gt; Completed
+            </span>
+          </div>
+          <div
+            class="help-shortcut"
+          >
+            <span
+              class="help-shortcut-keys"
+            >
+              / or Ctrl/Cmd+F
+            </span>
+            <span
+              class="help-shortcut-desc"
+            >
+              Focus the board search bar
+            </span>
+          </div>
+          <div
+            class="help-shortcut"
+          >
+            <span
+              class="help-shortcut-keys"
+            >
+              A
+            </span>
+            <span
+              class="help-shortcut-desc"
+            >
+              Archive task (Completed column only)
+            </span>
+          </div>
+          <div
+            class="help-shortcut"
+          >
+            <span
+              class="help-shortcut-keys"
+            >
+              ?
+            </span>
+            <span
+              class="help-shortcut-desc"
+            >
+              Toggle this help overlay
+            </span>
+          </div>
+        </div>
+        <div
+          class="help-overlay-footer"
+        >
+          Press Esc to close
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;

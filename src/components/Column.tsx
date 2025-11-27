@@ -14,6 +14,10 @@ interface ColumnProps {
   openCopyMenuFor?: string | null;
   onCloseCopyMenu?: () => void;
   onEditFile?: (task: Task) => void;
+  onDeleteTask?: (task: Task) => void;
+  onDuplicateTask?: (task: Task) => void;
+  onArchiveTask?: (task: Task) => void;
+  onUnarchiveTask?: (task: Task) => void;
 }
 
 export const Column: React.FC<ColumnProps> = ({
@@ -25,6 +29,10 @@ export const Column: React.FC<ColumnProps> = ({
   openCopyMenuFor,
   onCloseCopyMenu,
   onEditFile,
+  onDeleteTask,
+  onDuplicateTask,
+  onArchiveTask,
+  onUnarchiveTask,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: stage,
@@ -43,7 +51,7 @@ export const Column: React.FC<ColumnProps> = ({
         <span className="column-title">{STAGE_LABELS[stage]}</span>
         <span className="column-count">{tasks.length}</span>
       </div>
-      
+
       <div className="column-content">
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
@@ -56,10 +64,14 @@ export const Column: React.FC<ColumnProps> = ({
               forceDropdownOpen={openCopyMenuFor === task.id}
               onDropdownClose={onCloseCopyMenu}
               onEditFile={onEditFile}
+              onDeleteTask={onDeleteTask}
+              onDuplicateTask={onDuplicateTask}
+              onArchiveTask={onArchiveTask}
+              onUnarchiveTask={onUnarchiveTask}
             />
           ))}
         </SortableContext>
-        
+
         {tasks.length === 0 && (
           <div className="column-empty">
             Drop tasks here

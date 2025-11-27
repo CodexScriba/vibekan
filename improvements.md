@@ -7,7 +7,8 @@
 
 ## Improvements to Implement
 
-### 1. Rename "Chat" Stage → "Idea" (✅ Completed)
+### 1. Rename "Chat" Stage → "Idea" (✅ Completed & tested)
+**Status:** Implemented. Tests passing: `src/__tests__/rename_stage.test.tsx`.
 **Goal:** Rename the initial stage from "chat" to "Idea" to better reflect its purpose as the starting point for new tasks.
 **Rationale:** "Idea" implies a concept waiting to be developed, whereas "Chat" implies a communication channel.
 **Changes:**
@@ -27,7 +28,7 @@
 - Update all references in the tree view and board.
 
 #### Vitest Tests
-- **File:** `tests/rename_stage.test.ts`
+- **File:** `src/__tests__/rename_stage.test.tsx`
 - **Test Cases:**
   1. Verify that the stage enum includes `idea` and excludes `chat`.
   2. Ensure default stage in the task creation modal is `idea`.
@@ -36,7 +37,8 @@
 
 ---
 
-### 2. File Naming Convention: Stage Prefix in Slugs (✅ Completed)
+### 2. File Naming Convention: Stage Prefix in Slugs (✅ Completed & tested)
+**Status:** Implemented. Tests passing: `src/test/stage_prefix_filenames.test.ts`.
 **Goal:** Prefix task filenames with their current stage to ensure unique sorting and clearer organization.
 **Rationale:** Helps in organizing files on disk and allows for automatic renaming when tasks move between stages.
 **Changes:**
@@ -60,7 +62,7 @@
   - Maintain backward compatibility when reading old `task-*` files.
 
 #### Vitest Tests
-- **File:** `tests/stage_prefix_filenames.test.ts`
+- **File:** `src/test/stage_prefix_filenames.test.ts`
 - **Test Cases:**
   1. Creating a task in the Queue results in a filename starting with `queue-`.
   2. Moving a task to Code renames the file to start with `code-`.
@@ -69,7 +71,8 @@
 
 ---
 
-### 3. Quick Create Buttons in Topbar (Dual Placement) (✅ Completed)
+### 3. Quick Create Buttons in Topbar (Dual Placement) (✅ Completed & tested)
+**Status:** Implemented. Tests passing: `src/components/__tests__/BoardQuickCreate.test.tsx`.
 **Goal:** Add quick create buttons to the board topbar for easier access, while keeping them in the sidebar.
 **Rationale:** Allows users to close the sidebar while still having access to create actions directly from the board.
 **Changes:**
@@ -90,7 +93,7 @@
 - Share handlers between sidebar and topbar to avoid divergence.
 
 #### Vitest Tests
-- **File:** `tests/quick_create_topbar.test.ts`
+- **File:** `src/components/__tests__/BoardQuickCreate.test.tsx`
 - **Test Cases:**
   1. Verify that the quick create bar renders in the board topbar.
   2. Clicking each button opens the appropriate creation modal.
@@ -99,7 +102,8 @@
 
 ---
 
-### 4. Remove Theme/Motion Controls (✅ Completed)
+### 4. Remove Theme/Motion Controls (✅ Completed & tested)
+**Status:** Implemented. Tests passing: `tests/remove_theme_controls.test.tsx`.
 **Goal:** Remove runtime theme and motion controls from the UI to simplify the interface.
 **Rationale:** Users rarely switch themes at runtime; one good default is sufficient. Advanced users can still use VSCode settings.
 **Changes:**
@@ -123,7 +127,8 @@
 
 ---
 
-### 5. Multiple Contexts Per Task
+### 5. Multiple Contexts Per Task (✅ Completed & tested)
+**Status:** Implemented. Tests passing: `tests/multiple_contexts.test.tsx`.
 **Goal:** Allow attaching multiple context files to a single task instead of just one.
 **Rationale:** Complex tasks often require context from multiple sources (e.g., UI design + API spec).
 **Changes:**
@@ -153,7 +158,8 @@
 
 ---
 
-### 6. Full Task Metadata Editing (Not Just Content)
+### 6. Full Task Metadata Editing (Not Just Content) (✅ Completed & tested)
+**Status:** Implemented. Tests passing (with React act warnings to clean up): `tests/metadata_editor.test.tsx`.
 **Goal:** Provide a GUI to edit all task metadata fields (title, stage, phase, agent, contexts, tags), not just the markdown content.
 **Rationale:** Currently, metadata can only be edited via raw YAML frontmatter, which is error-prone and less user-friendly.
 **Changes:**
@@ -182,7 +188,8 @@
 
 ---
 
-### 7. Editable Task Templates (Multiple Types) (Completed and tested)
+### 7. Editable Task Templates (Multiple Types) (✅ Completed & tested)
+**Status:** Implemented. Tests passing: `tests/editable_templates.test.tsx`.
 **Goal:** Allow users to create and use custom task templates.
 **Rationale:** Different task types (Bug, Feature, Spike) require different structures.
 **Changes:**
@@ -210,7 +217,8 @@
 
 ---
 
-### 8. Search Bar in Board Topbar (Completed and tested)
+### 8. Search Bar in Board Topbar (✅ Completed & tested)
+**Status:** Implemented. Tests passing: `tests/search_bar.test.tsx`.
 **Goal:** Add a search bar to filter tasks on the board.
 **Rationale:** Essential for managing boards with many tasks.
 **Changes:**
@@ -238,7 +246,8 @@
 
 ---
 
-### 9. Delete Action on Task Cards
+### 9. Delete Action on Task Cards (✅ Completed & tested)
+**Status:** Feature implemented (hover icon, Delete/D/Backspace shortcuts). Tests passing: `tests/delete_action.test.tsx`.
 **Goal:** Allow deleting tasks directly from the board cards.
 **Rationale:** Streamlines task management; currently delete is only possible via the tree view.
 **Changes:**
@@ -266,7 +275,8 @@
 
 ---
 
-### 10. Comprehensive Keyboard Shortcuts
+### 10. Comprehensive Keyboard Shortcuts (✅ Completed & tested)
+**Status:** Feature implemented (N, Delete/D/Backspace, Shift+D, 1-6, /, ?, A). Tests passing: `tests/keyboard_shortcuts.test.tsx`.
 **Goal:** Enable a full keyboard-driven workflow.
 **Rationale:** Increases productivity for power users.
 **Changes:**
@@ -300,7 +310,8 @@
 
 ---
 
-### 11. Archive Completed Tasks
+### 11. Archive Completed Tasks (✅ Completed & tested)
+**Status:** Feature implemented (archive stage, toggle, tree view). Archiving/unarchiving now routes through `handleMoveTask` to preserve stage-prefixed filenames. Tests passing: `tests/archive_tasks.test.tsx`.
 **Goal:** Move completed tasks to an archive to keep the board clean.
 **Rationale:** Prevents the "Completed" column from growing indefinitely.
 **Changes:**
@@ -312,16 +323,18 @@
   - "Show Archived" toggle in topbar.
   - Archive section in Tree View.
 - **Files to Edit:**
-  - `src/types/task.ts`: Add `archive` stage.
-  - `src/extension.ts`: Scaffolding, move handlers.
-  - `src/components/Board.tsx`: Toggle logic.
-  - `src/components/TaskTree.tsx`: Archive section.
+  - `src/types/task.ts`: Add `archive` stage. ✅
+  - `src/extension.ts`: Scaffolding, move handlers. ✅ (now delegates to `handleMoveTask`)
+  - `src/components/Board.tsx`: Toggle logic. ✅
+  - `src/components/TaskTree.tsx`: Archive section. ✅
+  - `src/components/Column.tsx`: Added onUnarchiveTask prop. ✅
+  - `src/components/TaskCard.tsx`: Archive/Unarchive buttons. ✅
 **Implementation Details:**
 - **Folder:** `.vibekan/tasks/archive/`.
 - **Behavior:** Archived tasks are hidden by default on the board.
 
 #### Vitest Tests
-- **File:** `tests/archive_tasks.test.ts`
+- **File:** `tests/archive_tasks.test.tsx`
 - **Test Cases:**
   1. Archiving a completed task moves the file to the `archive` folder and updates its stage.
   2. The "Show Archived" toggle reveals archived tasks on the board.
@@ -352,6 +365,6 @@
 ---
 
 ## Summary
-**Total Items:** 11
+**Total Items:** 11 (all implemented & tested).
 **Estimated Effort:** 6-8 prompts.
-**Status:** Design decisions finalized. Ready for implementation.
+**Status:** Implementation complete. Note: React act warnings still emit in metadata editor tests; underlying behavior passes assertions.
