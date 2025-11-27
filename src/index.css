@@ -78,19 +78,24 @@ body {
   flex-shrink: 0;
 }
 
-.board-topbar .quick-create-bar {
-  display: flex;
+.board-topbar .quick-create-bar,
+.board-topbar .quick-create-bar.with-labels {
+  display: flex !important;
   flex-direction: row;
+  flex-wrap: nowrap;
   gap: 4px;
   padding: 0;
   background: transparent;
   border: none;
   border-radius: 0;
   backdrop-filter: none;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  overflow-x: auto;
+  grid-template-columns: unset;
 }
 
-.board-topbar .quick-create-button {
+.board-topbar .quick-create-button,
+.board-topbar .quick-create-button.labeled {
   height: 28px;
   width: auto;
   min-width: auto;
@@ -832,7 +837,7 @@ body {
 
 .quick-create-bar {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
   gap: 10px;
   padding: 10px;
   background: var(--glass-bg);

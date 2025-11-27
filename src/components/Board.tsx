@@ -793,6 +793,7 @@ export const Board: React.FC = () => {
           onOpenTemplates={handleOpenTemplates}
           disabled={!workspaceExists}
           showLabels={true}
+          useEmojis={true}
         />
         <button
           className={`board-archive-toggle ${showArchived ? 'active' : ''}`}
