@@ -12,6 +12,12 @@ interface ParsedFrontmatter {
 let boardWebview: vscode.Webview | null = null;
 let sidebarWebview: vscode.Webview | null = null;
 
+type ThemeSettingName = 'dark-glass' | 'low-glow';
+interface ThemeSettings {
+  theme: ThemeSettingName;
+  reducedMotion: boolean;
+}
+
 interface ContextData {
   phases: string[];
   agents: string[];
@@ -89,9 +95,23 @@ function resolveCopyMode(mode: string | undefined, fallback: CopyMode): CopyMode
   return fallback;
 }
 
+function getThemeSettings(): ThemeSettings {
+  const config = vscode.workspace.getConfiguration('vibekan');
+  const theme = config.get<string>('theme', 'dark-glass');
+  const reducedMotion = config.get<boolean>('reducedMotion', false);
+
+  const themeValue: ThemeSettingName = theme === 'low-glow' ? 'low-glow' : 'dark-glass';
+  return { theme: themeValue, reducedMotion: !!reducedMotion };
+}
+
 async function sendCopySettings(webview: vscode.Webview) {
   const settings = getCopySettings();
   webview.postMessage({ type: 'copySettings', settings });
+}
+
+async function sendThemeSettings(webview: vscode.Webview) {
+  const settings = getThemeSettings();
+  webview.postMessage({ type: 'themeSettings', settings });
 }
 
 async function broadcastCopySettings() {
@@ -101,6 +121,26 @@ async function broadcastCopySettings() {
   if (boardWebview) {
     await sendCopySettings(boardWebview);
   }
+}
+
+async function broadcastThemeSettings() {
+  if (sidebarWebview) {
+    await sendThemeSettings(sidebarWebview);
+  }
+  if (boardWebview) {
+    await sendThemeSettings(boardWebview);
+  }
+}
+
+async function updateThemeSettings(theme: ThemeSettingName, reducedMotion: boolean) {
+  const config = vscode.workspace.getConfiguration('vibekan');
+  try {
+    await config.update('theme', theme, vscode.ConfigurationTarget.Workspace);
+    await config.update('reducedMotion', reducedMotion, vscode.ConfigurationTarget.Workspace);
+  } catch (error) {
+    console.error('[Vibekan] Failed to update theme settings', error);
+  }
+  await broadcastThemeSettings();
 }
 
 async function readContextDirectory(dir: vscode.Uri): Promise<Record<string, string>> {
@@ -155,6 +195,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     panel.webview.html = getWebviewContent(panel.webview, context.extensionUri, 'board');
     sendCopySettings(panel.webview);
+    sendThemeSettings(panel.webview);
 
     // Handle messages from the board
     panel.webview.onDidReceiveMessage(
@@ -206,6 +247,9 @@ export function activate(context: vscode.ExtensionContext) {
           case 'showInfo':
             vscode.window.showInformationMessage(message.message);
             break;
+          case 'setThemeSettings':
+            await updateThemeSettings(message.theme as ThemeSettingName, !!message.reducedMotion);
+            break;
         }
       },
       undefined,
@@ -230,6 +274,9 @@ export function activate(context: vscode.ExtensionContext) {
   const configListener = vscode.workspace.onDidChangeConfiguration((event) => {
     if (event.affectsConfiguration('vibekan.copyMode')) {
       broadcastCopySettings();
+    }
+    if (event.affectsConfiguration('vibekan.theme') || event.affectsConfiguration('vibekan.reducedMotion')) {
+      broadcastThemeSettings();
     }
   });
 
@@ -257,6 +304,7 @@ class VibekanSidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = getWebviewContent(webviewView.webview, this._extensionUri, 'sidebar');
     sendCopySettings(webviewView.webview);
+    sendThemeSettings(webviewView.webview);
 
       webviewView.webview.onDidReceiveMessage(async (data) => {
         switch (data.command) {
@@ -328,6 +376,9 @@ class VibekanSidebarProvider implements vscode.WebviewViewProvider {
             break;
           case 'showInfo':
             vscode.window.showInformationMessage(data.message);
+            break;
+          case 'setThemeSettings':
+            await updateThemeSettings(data.theme as ThemeSettingName, !!data.reducedMotion);
             break;
         }
       });

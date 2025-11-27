@@ -59,6 +59,16 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 - **Commands:** `Vibekan: Copy Task (Full Context)`, `Vibekan: Copy Task Only`, `Vibekan: Copy Context Only` (Quick Pick task selector when triggered outside the board).
 - **UI feedback:** Glassy dropdown and toast notification in the board webview after copy.
 
+### Monaco Editor Popup (Phase E ✅ Completed)
+- **In-view editing:** Edit task markdown files directly from the Kanban board using Monaco Editor in a glassmorphic popup modal.
+- **Trigger points:** Edit icon on task card hover, `E` keyboard shortcut when task is focused.
+- **Editor features:** Full Monaco Editor with markdown syntax highlighting, line numbers, word wrap, and dark theme.
+- **Keyboard shortcuts:** `Ctrl/Cmd+S` to save, `Ctrl/Cmd+Shift+S` to save and close, `Escape` to close.
+- **Conflict detection:** Checks file mtime before saving; prompts if file was modified externally.
+- **Stage change handling:** Automatically moves file to correct stage folder if frontmatter stage is changed.
+- **Security:** Path validation prevents directory traversal attacks; cross-platform compatible (Windows/Linux/macOS).
+- **Local Monaco:** Monaco Editor bundled locally to comply with VSCode webview CSP (no CDN dependencies).
+
 ## Project File Tree
 
 ```text
@@ -91,6 +101,7 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 │   │   ├── Column.tsx          # Stage column component
 │   │   ├── TaskCard.tsx        # Draggable task card component
 │   │   ├── CopyDropdown.tsx    # Copy mode picker on task cards
+│   │   ├── EditorModal.tsx     # Monaco Editor popup for inline task editing
 │   │   ├── Toast.tsx           # In-webview toast notification
 │   │   └── Sidebar.tsx         # Sidebar view component
 │   ├── hooks/                  # React hooks

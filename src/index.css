@@ -3,11 +3,35 @@
   --bg-gradient-end: #090915;
   --glass-bg: rgba(15, 20, 40, 0.7);
   --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-strong: rgba(255, 255, 255, 0.2);
+  --glass-blur: 16px;
+  --surface-card: rgba(20, 25, 50, 0.82);
+  --surface-button: rgba(20, 25, 50, 0.82);
+  --surface-muted: rgba(20, 25, 50, 0.6);
   --accent-primary: #3BF5FF;
   --accent-secondary: #FF3BCE;
+  --accent-quiet: rgba(139, 92, 255, 0.5);
   --text-primary: #F5F7FF;
   --text-secondary: rgba(245, 247, 255, 0.7);
+  --shadow-soft: 0 12px 40px rgba(0, 0, 0, 0.35);
+  --shadow-strong: 0 16px 50px rgba(0, 0, 0, 0.45);
+  --focus-outline: rgba(59, 245, 255, 0.7);
+  --motion-fast: 160ms;
+  --motion-medium: 220ms;
+  --motion-slow: 320ms;
+  --motion-stagger: 60ms;
+  --edge-line: linear-gradient(180deg, rgba(59, 245, 255, 0.65), rgba(255, 59, 206, 0.35));
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+:root[data-reduced-motion="true"] {
+  --motion-fast: 0ms;
+  --motion-medium: 0ms;
+  --motion-slow: 0ms;
+  --motion-stagger: 0ms;
+  --glass-blur: 10px;
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --shadow-strong: 0 12px 32px rgba(0, 0, 0, 0.32);
 }
 
 *, *::before, *::after {
@@ -32,11 +56,73 @@ body {
   height: 100%;
 }
 
+.board-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 4px 12px;
+}
+
+.board-topbar-title {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+}
+
+.theme-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.theme-pill-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.theme-pill {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+}
+
+.theme-pill:hover {
+  color: var(--text-primary);
+  border-color: var(--glass-border);
+}
+
+.theme-pill.active {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--glass-bg) 70%, var(--accent-primary) 30%);
+  border-color: var(--glass-border-strong);
+  box-shadow: 0 0 12px rgba(59, 245, 255, 0.18);
+}
+
+.theme-pill.reduced.active {
+  background: color-mix(in srgb, var(--glass-bg) 60%, var(--accent-secondary) 20%);
+}
+
 /* Glassmorphism Utilities */
 .glass-panel {
   background: var(--glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
 }
 
@@ -54,19 +140,19 @@ body {
   gap: 12px;
   width: 100%;
   padding: 12px 16px;
-  background: rgba(20, 25, 50, 0.8);
+  background: var(--surface-button);
   border: 1px solid var(--glass-border);
   border-radius: 9999px; /* Pill shape */
   color: var(--text-primary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background var(--motion-fast) ease, box-shadow var(--motion-fast) ease, border-color var(--motion-fast) ease, transform var(--motion-fast) ease;
   text-align: left;
   position: relative;
   overflow: hidden;
 }
 
 .vibekan-button:hover {
-  background: rgba(30, 35, 60, 0.9);
+  background: color-mix(in srgb, var(--surface-button) 90%, #ffffff 10%);
   box-shadow: 0 0 15px rgba(59, 245, 255, 0.15);
   border-color: rgba(59, 245, 255, 0.3);
 }
@@ -113,7 +199,7 @@ body {
   padding: 8px 12px;
   border: 1px solid var(--glass-border);
   border-radius: 12px;
-  background: rgba(20, 25, 50, 0.6);
+  background: var(--surface-muted);
 }
 
 .vibekan-status.error {
@@ -132,12 +218,21 @@ body {
   outline: none;
 }
 
+.board-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
 .board-columns {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 12px;
   height: 100%;
   overflow-x: auto;
+  min-height: 0;
 }
 
 /* Column Styles */
@@ -145,14 +240,15 @@ body {
   display: flex;
   flex-direction: column;
   background: var(--glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
   border-radius: 16px;
   min-width: 200px;
   max-height: 100%;
   overflow: hidden;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+  box-shadow: var(--shadow-soft);
 }
 
 .board-column.drop-target {
@@ -213,26 +309,26 @@ body {
 
 /* Task Card Styles */
 .task-card {
-  background: rgba(20, 25, 50, 0.8);
+  background: var(--surface-card);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
   padding: 12px;
   cursor: grab;
-  transition: all 0.2s ease;
+  transition: background var(--motion-medium) ease, border-color var(--motion-medium) ease, box-shadow var(--motion-medium) ease;
   outline: none;
   position: relative;
 }
 
 .task-card:hover {
-  background: rgba(30, 35, 60, 0.9);
+  background: color-mix(in srgb, var(--surface-card) 90%, #ffffff 10%);
   border-color: rgba(59, 245, 255, 0.3);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-soft);
 }
 
 .task-card:focus,
 .task-card.selected {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px rgba(59, 245, 255, 0.2);
+  box-shadow: 0 0 0 2px var(--focus-outline);
 }
 
 .task-card.dragging {
@@ -279,7 +375,7 @@ body {
   border-radius: 6px;
   color: var(--text-primary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background var(--motion-fast) ease, color var(--motion-fast) ease, transform var(--motion-fast) ease;
   flex-shrink: 0;
 }
 
@@ -303,7 +399,7 @@ body {
   border-radius: 10px;
   color: var(--text-primary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background var(--motion-fast) ease, transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
@@ -338,11 +434,11 @@ body {
   top: 40px;
   left: 0;
   min-width: 190px;
-  background: rgba(15, 20, 40, 0.9);
+  background: var(--surface-card);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-strong);
+  backdrop-filter: blur(var(--glass-blur));
   padding: 6px;
   z-index: 10;
 }
@@ -358,7 +454,7 @@ body {
   border-radius: 8px;
   color: var(--text-primary);
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 .copy-menu-item:hover {
@@ -460,6 +556,10 @@ body {
   animation: spin 1s linear infinite;
 }
 
+:root[data-reduced-motion="true"] .loading-spinner {
+  animation: none;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -485,11 +585,11 @@ body {
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  background: rgba(15, 20, 40, 0.9);
-  border: 1px solid var(--glass-border);
+  background: var(--surface-card);
+  border: 1px solid var(--glass-border-strong);
   border-radius: 12px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-strong);
+  backdrop-filter: blur(var(--glass-blur));
   color: var(--text-primary);
   z-index: 30;
 }
@@ -527,7 +627,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s ease;
+  transition: color var(--motion-fast) ease;
 }
 
 .toast-close:hover {
@@ -577,6 +677,37 @@ body {
   gap: 12px;
   overflow-x: hidden;
   overflow-y: auto;
+  position: relative;
+}
+
+.sidebar-shell::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  background: var(--edge-line);
+  background-size: 100% 200%;
+  filter: blur(0.3px);
+  opacity: 0.55;
+  animation: edge-glow 14s linear infinite;
+  pointer-events: none;
+  border-radius: 6px;
+}
+
+:root[data-reduced-motion="true"] .sidebar-shell::before {
+  animation: none;
+  opacity: 0.3;
+}
+
+@keyframes edge-glow {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 0% 100%;
+  }
 }
 
 .launcher-stack {
@@ -590,14 +721,16 @@ body {
   grid-template-columns: repeat(6, 1fr);
   gap: 10px;
   padding: 10px;
-  background: rgba(20, 25, 50, 0.8);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
 }
 
 .quick-create-button {
   height: 36px;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--glass-bg) 80%, #ffffff 10%);
   border: 1px solid var(--glass-border);
   border-radius: 10px;
   color: var(--text-primary);
@@ -605,7 +738,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease;
 }
 
 .quick-create-button:hover {
@@ -626,7 +759,7 @@ body {
   overflow-y: auto;
   border: 1px solid var(--glass-border);
   border-radius: 12px;
-  background: rgba(12, 15, 30, 0.6);
+  background: var(--glass-bg);
   padding: 8px;
   margin-bottom: 8px;
 }
@@ -642,7 +775,7 @@ body {
 .task-tree-phase {
   border: 1px solid var(--glass-border);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--glass-bg) 85%, #ffffff 5%);
 }
 
 .task-tree-phase-toggle {
@@ -697,7 +830,7 @@ body {
   align-items: center;
   gap: 8px;
   padding: 8px;
-  background: rgba(20, 25, 50, 0.8);
+  background: var(--surface-card);
   border: 1px solid var(--glass-border);
   border-radius: 8px;
 }
@@ -718,7 +851,7 @@ body {
 }
 
 .task-tree-select {
-  background: #0c0f1e;
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: 6px;
   color: var(--text-primary);
@@ -945,10 +1078,10 @@ body {
 .editor-modal {
   width: min(80vw, 1200px);
   height: 70vh;
-  background: rgba(12, 15, 30, 0.97);
-  border: 1px solid var(--glass-border);
+  background: var(--surface-card);
+  border: 1px solid var(--glass-border-strong);
   border-radius: 16px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-strong);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -960,7 +1093,7 @@ body {
   justify-content: space-between;
   padding: 14px 18px;
   border-bottom: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--glass-bg) 80%, #ffffff 6%);
 }
 
 .editor-modal-title {
@@ -991,7 +1124,7 @@ body {
   align-items: center;
   justify-content: center;
   border-radius: 6px;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 .editor-modal-close:hover {
@@ -1002,7 +1135,7 @@ body {
 .editor-modal-body {
   flex: 1;
   overflow: hidden;
-  background: #1e1e1e;
+  background: color-mix(in srgb, var(--surface-card) 85%, #000000 15%);
 }
 
 .editor-modal-loading,
@@ -1027,7 +1160,7 @@ body {
   gap: 10px;
   padding: 12px 18px;
   border-top: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--glass-bg) 80%, #ffffff 6%);
 }
 
 .editor-modal-footer .modal-primary {
@@ -1049,4 +1182,8 @@ body {
 
 .spin {
   animation: spin 1s linear infinite;
+}
+
+:root[data-reduced-motion="true"] .spin {
+  animation: none;
 }

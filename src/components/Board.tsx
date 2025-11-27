@@ -21,6 +21,7 @@ import { useTasks } from '../hooks/useTasks';
 import { getVsCodeApi } from '../utils/vscode';
 import { Toast } from './Toast';
 import { EditorModal } from './EditorModal';
+import { ThemeControls } from './ThemeControls';
 
 const MODE_LABELS: Record<CopyMode, string> = {
   full: 'Full Context',
@@ -403,48 +404,54 @@ export const Board: React.FC = () => {
 
   return (
     <div className="board-container" onKeyDown={handleKeyDown} tabIndex={0}>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={customCollisionDetection}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="board-columns">
-          {STAGES.map((stage) => (
-            <Column
-              key={stage}
-              stage={stage}
-              tasks={getTasksByStage(stage)}
-              selectedTaskId={selectedTaskId}
-              onSelectTask={setSelectedTaskId}
-              defaultCopyMode={copySettings.defaultMode}
-              openCopyMenuFor={openCopyMenuFor}
-              onCloseCopyMenu={() => setOpenCopyMenuFor(null)}
-              onEditFile={handleEditFile}
-            />
-          ))}
-        </div>
+      <div className="board-topbar">
+        <div className="board-topbar-title">Vibekan Board</div>
+        <ThemeControls />
+      </div>
+      <div className="board-content">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={customCollisionDetection}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="board-columns">
+            {STAGES.map((stage) => (
+              <Column
+                key={stage}
+                stage={stage}
+                tasks={getTasksByStage(stage)}
+                selectedTaskId={selectedTaskId}
+                onSelectTask={setSelectedTaskId}
+                defaultCopyMode={copySettings.defaultMode}
+                openCopyMenuFor={openCopyMenuFor}
+                onCloseCopyMenu={() => setOpenCopyMenuFor(null)}
+                onEditFile={handleEditFile}
+              />
+            ))}
+          </div>
 
-        <DragOverlay>
-          {activeTask && <TaskCardOverlay task={activeTask} />}
-        </DragOverlay>
-      </DndContext>
-      {toast && (
-        <Toast
-          message={toast.message}
-          kind={toast.kind}
-          onDismiss={() => setToast(null)}
-        />
-      )}
-      {editorTask && (
-        <EditorModal
-          open={!!editorTask}
-          filePath={editorTask.filePath}
-          fileName={editorTask.title}
-          onClose={handleCloseEditor}
-        />
-      )}
+          <DragOverlay>
+            {activeTask && <TaskCardOverlay task={activeTask} />}
+          </DragOverlay>
+        </DndContext>
+        {toast && (
+          <Toast
+            message={toast.message}
+            kind={toast.kind}
+            onDismiss={() => setToast(null)}
+          />
+        )}
+        {editorTask && (
+          <EditorModal
+            open={!!editorTask}
+            filePath={editorTask.filePath}
+            fileName={editorTask.title}
+            onClose={handleCloseEditor}
+          />
+        )}
+      </div>
     </div>
   );
 };

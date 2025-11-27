@@ -110,6 +110,20 @@
           "type": "number",
           "default": 3000,
           "description": "Toast duration in milliseconds."
+        },
+        "vibekan.theme": {
+          "type": "string",
+          "enum": [
+            "dark-glass",
+            "low-glow"
+          ],
+          "default": "dark-glass",
+          "description": "Visual theme for Vibekan surfaces."
+        },
+        "vibekan.reducedMotion": {
+          "type": "boolean",
+          "default": false,
+          "description": "Reduce motion/animation in Vibekan UI (respects system setting by default)."
         }
       }
     }

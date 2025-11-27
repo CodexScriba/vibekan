@@ -1025,9 +1025,23 @@ vibekan/
 
 ---
 
-### Phase E — Monaco Editor Popup (In-View File Editing)
+### Phase E — Monaco Editor Popup (In-View File Editing) ✅ COMPLETED
 
 **Goal:** Enable editing task markdown files directly from the Kanban webview using Monaco Editor in a popup modal, eliminating the need to switch to a separate editor tab.
+
+**What shipped:**
+- Monaco Editor embedded in glassmorphic popup modal via `@monaco-editor/react`
+- Edit triggers: hover icon on task cards, `E` keyboard shortcut
+- Save functionality: `Ctrl/Cmd+S` to save, `Ctrl/Cmd+Shift+S` to save and close
+- Conflict detection: mtime-based check with overwrite/reload dialog
+- Stage change handling: auto-moves file when frontmatter stage changes
+- Path security: `validateVibekanPath()` prevents directory traversal (cross-platform)
+- Local Monaco: bundled via `loader.config({ monaco })` to avoid CSP issues with CDN loading
+
+**Key implementation details:**
+- Monaco must be configured with local files instead of CDN to comply with VSCode webview CSP
+- Message listener must be set up BEFORE sending `readTaskFile` request to avoid race conditions
+- Stage detection uses `path.sep` normalization for Windows compatibility
 
 ---
 
@@ -1185,16 +1199,16 @@ case 'saveTaskFile':
 
 #### E.6 Testing Checklist
 
-- [ ] Test opening editor from hover icon, keyboard shortcut, and context menu
-- [ ] Test editing and saving a task file
-- [ ] Test `Ctrl/Cmd+S` saves without closing modal
-- [ ] Test conflict detection when file modified externally
-- [ ] Test unsaved changes warning on close
-- [ ] Test frontmatter parsing after save (stage changes update board)
+- [x] Test opening editor from hover icon, keyboard shortcut, and context menu
+- [x] Test editing and saving a task file
+- [x] Test `Ctrl/Cmd+S` saves without closing modal
+- [x] Test conflict detection when file modified externally
+- [x] Test unsaved changes warning on close
+- [x] Test frontmatter parsing after save (stage changes update board)
 - [ ] Test with large files (500+ lines)
-- [ ] Test Monaco lazy loading (loading spinner appears)
-- [ ] Verify all Monaco keybindings work (Ctrl+Z, Ctrl+F, etc.)
-- [ ] Test on slow network (Monaco CDN fallback)
+- [x] Test Monaco lazy loading (loading spinner appears)
+- [x] Verify all Monaco keybindings work (Ctrl+Z, Ctrl+F, etc.)
+- [x] Monaco bundled locally (no CDN dependency)
 
 ---
 
@@ -1205,6 +1219,63 @@ case 'saveTaskFile':
   - Provide a "reduced motion" option.
 - Iterate on crypto‑inspired accents without crossing into noisy or gimmicky.
 - Performance optimization for 100+ tasks.
+
+**Implementation Plan (Phase F):**
+
+#### F.1 Goals
+
+- Unify theme tokens (color, blur, depth, motion) so sidebar + board share a single source of truth.
+- Ship two presets: `dark-glass` (default) and `low-glow` (reduced-glow, higher contrast). Light mode is out-of-scope for this phase but the token system must allow it.
+- Respect `prefers-reduced-motion` + VSCode `window.autoDetectColorScheme` / `workbench.reduceMotion` equivalents with a `vibekan.reducedMotion` override.
+- Maintain the “liquid glass” identity while ensuring WCAG AA contrast for all text, icons, focus rings, and key affordances.
+- Keep board interactions smooth with 100–150 tasks: sub-2s load, stable 60fps on scroll/drag, no layout thrash.
+
+#### F.2 Workstreams & Tasks
+
+- **Token + Theme System**
+  - Extract all visual tokens into a dedicated module (e.g., `src/styles/tokens.ts` or CSS variables map) with semantic names: `--surface-0/1`, `--stroke-strong`, `--glow-cyan`, `--text-primary/secondary`, `--elev-1/2/3`, `--motion-fast/medium/slow`.
+  - Define two theme objects: `dark-glass` (current look, tuned) and `low-glow` (reduced blur/glow, higher contrast). Wire to a `vibekan.theme` setting + runtime toggle in the board top bar.
+  - Provide a runtime theme context so React components consume tokens via hooks/util (`useThemeTokens`) instead of raw CSS variable strings.
+
+- **Glass & Accent Polish**
+  - Adjust blur strength, border gradients, and shadow softness per elevation level; add layered gradients on headers/footers to avoid flat panels.
+  - Limit accent usage to primary actions/selection; introduce “quiet” variant for secondary UI to avoid neon overload.
+  - Add a slow ambient edge line animation to the sidebar container only; disable when reduced motion is on.
+
+- **Motion & Reduced Motion**
+  - Centralize transitions: `--motion-fast (120ms, cubic-bezier)`, `--motion-medium (200ms)`, `--motion-slow (320ms)`, `--motion-stagger (60ms step)`.
+  - Respect `prefers-reduced-motion` and `vibekan.reducedMotion`: disable blurs where expensive, drop large shadows, remove non-essential animations, keep focus cues.
+  - Ensure drag/drop + modal open/close use springy but short curves; throttle layout-affecting animations when task count > 80.
+
+- **Accessibility & Contrast**
+  - Audit text/icon contrast per component (Sidebar buttons, Board columns/cards, Dropdowns, Modals, Toasts). Target WCAG AA (contrast ≥ 4.5 for body, 3.0 for large text/icons).
+  - Add explicit focus rings using accent outlines; avoid relying on glow alone. Provide `highContrastFocus` token variant.
+  - Verify font sizing scales with VSCode zoom; avoid fixed px where rem would work.
+
+- **Performance for 100–150 Tasks**
+  - Measure and cache: memoize derived lists, stable keys, and expensive selectors; ensure drag ghost/previews are lightweight.
+  - Virtualize long lists in tree view and board columns if item counts exceed threshold, or at minimum window the render area with `IntersectionObserver`/manual slicing.
+  - Reduce heavy CSS effects in dense states: lower blur radius/shadow spread when column has >20 cards; avoid nested filters.
+  - Debounce file system reads/writes already in place; add `requestIdleCallback` (or setTimeout) for non-critical layout recomputations.
+
+#### F.3 Implementation Order (2-week target)
+
+1) Token system + theme wiring (dark-glass, low-glow) with runtime toggle + setting plumbing.
+2) Motion centralization + reduced-motion pathways; gate existing animations.
+3) Contrast/focus pass on key surfaces (sidebar buttons, cards, dropdowns, modals, tree view) using new tokens.
+4) Performance pass: measure (FPS, mount time), then apply virtualization/lightweight styles in high-density states.
+5) Accent/ambient polish: edge-line animation + quiet accent variants; final visual QA.
+
+#### F.4 Acceptance & Testing Checklist
+
+- [ ] Theme switch updates all surfaces without reload; tokens live in one module consumed by components.
+- [ ] Reduced motion: no non-essential animations; blur/shadow intensity reduced; ambient edge line disabled.
+- [ ] Contrast audit passes WCAG AA for all text/icons; focus rings visible on keyboard nav.
+- [ ] Board + tree view remain responsive at 100–150 tasks: <2s initial load, no frame drops during drag/scroll (manual check + performance profile).
+- [ ] Visual identity intact: glass panels, accent usage limited to primary/selection, no noisy gradients.
+- [ ] Settings: `vibekan.theme` and `vibekan.reducedMotion` reflected in UI; defaults documented.
+
+**Dependencies/Notes:** Reuse existing CSS variables where possible; avoid breaking current completed phases. Schedule a short human review after steps 2 and 4 to lock motion/contrast before final polish.
 
 ---
 
