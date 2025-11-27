@@ -59,29 +59,84 @@ body {
 .board-topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 4px 12px;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  margin-bottom: 8px;
 }
 
 .board-topbar-title {
   font-weight: 700;
+  font-size: 14px;
   letter-spacing: 0.01em;
   color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .board-topbar .quick-create-bar {
-  grid-template-columns: repeat(auto-fit, minmax(36px, 1fr));
-  padding: 6px 8px;
-  gap: 8px;
-  width: min(360px, 100%);
-  margin-left: auto;
-  background: color-mix(in srgb, var(--glass-bg) 85%, #ffffff 6%);
-  border-color: var(--glass-border-strong);
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  backdrop-filter: none;
+  flex-shrink: 0;
 }
 
 .board-topbar .quick-create-button {
-  height: 34px;
+  height: 30px;
+  width: 30px;
+  min-width: 30px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+/* Archive Toggle Button */
+.board-archive-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  background: color-mix(in srgb, var(--glass-bg) 80%, #ffffff 10%);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--font-family);
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.board-archive-toggle:hover {
+  border-color: rgba(59, 245, 255, 0.4);
+}
+
+.board-archive-toggle.active {
+  border-color: var(--accent-primary);
+  background: rgba(59, 245, 255, 0.1);
+}
+
+.archive-toggle-label {
+  display: none;
+}
+
+.archive-count {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 16px;
+  text-align: center;
 }
 
 /* Search Bar */
@@ -89,28 +144,28 @@ body {
   display: flex;
   align-items: center;
   position: relative;
-  width: 240px;
-  margin-left: auto;
-  margin-right: 12px;
+  flex: 1;
+  min-width: 120px;
+  max-width: 280px;
 }
 
 .board-search-icon {
   position: absolute;
-  left: 10px;
+  left: 8px;
   color: var(--text-secondary);
   pointer-events: none;
 }
 
 .board-search-input {
   width: 100%;
-  height: 34px;
-  padding: 0 12px 0 32px;
-  background: color-mix(in srgb, var(--glass-bg) 85%, #ffffff 6%);
-  border: 1px solid var(--glass-border-strong);
+  height: 30px;
+  padding: 0 10px 0 30px;
+  background: color-mix(in srgb, var(--glass-bg) 80%, #ffffff 10%);
+  border: 1px solid var(--glass-border);
   border-radius: 8px;
   color: var(--text-primary);
   font-family: var(--font-family);
-  font-size: 13px;
+  font-size: 12px;
   outline: none;
   transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background var(--motion-fast) ease;
 }
@@ -691,6 +746,14 @@ body {
 @media (max-width: 768px) {
   .board-columns {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .board-topbar-title {
+    display: none;
+  }
+
+  .board-search {
+    max-width: none;
   }
 }
 

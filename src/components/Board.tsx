@@ -792,7 +792,7 @@ export const Board: React.FC = () => {
           onOpenRoadmap={handleOpenRoadmap}
           onOpenTemplates={handleOpenTemplates}
           disabled={!workspaceExists}
-          showLabels={true}
+          showLabels={false}
         />
         <button
           className={`board-archive-toggle ${showArchived ? 'active' : ''}`}
