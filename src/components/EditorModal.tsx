@@ -1,17 +1,32 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Editor, { OnMount, loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
-import { X, Save, Loader2, SaveAll } from 'lucide-react';
+import { X, Save, Loader2, SaveAll, FileText, Settings2 } from 'lucide-react';
 import { getVsCodeApi } from '../utils/vscode';
+import { Task, Stage, STAGES, STAGE_LABELS } from '../types/task';
+import { ContextData } from '../hooks/useContextData';
 
 // Configure Monaco to use local files instead of CDN
 // This is required for VSCode webviews which have strict CSP
 loader.config({ monaco });
 
+type EditorTab = 'metadata' | 'content';
+
+interface TaskMetadata {
+  title: string;
+  stage: string;
+  phase: string;
+  agent: string;
+  contexts: string[];
+  tags: string[];
+}
+
 interface EditorModalProps {
   open: boolean;
   filePath: string;
   fileName: string;
+  task: Task;
+  contextData: ContextData;
   onClose: () => void;
 }
 
@@ -19,28 +34,62 @@ export const EditorModal: React.FC<EditorModalProps> = ({
   open,
   filePath,
   fileName,
+  task,
+  contextData,
   onClose,
 }) => {
   console.log('[EditorModal] Render - open:', open, 'filePath:', filePath);
   const vscode = getVsCodeApi();
+  const [activeTab, setActiveTab] = useState<EditorTab>('metadata');
   const [content, setContent] = useState<string>('');
   const [originalContent, setOriginalContent] = useState<string>('');
+  const [metadata, setMetadata] = useState<TaskMetadata>({
+    title: task.title,
+    stage: task.stage,
+    phase: task.phase ?? '',
+    agent: task.agent ?? '',
+    contexts: task.contexts ?? [],
+    tags: task.tags ?? [],
+  });
+  const [originalMetadata, setOriginalMetadata] = useState<TaskMetadata>({
+    title: task.title,
+    stage: task.stage,
+    phase: task.phase ?? '',
+    agent: task.agent ?? '',
+    contexts: task.contexts ?? [],
+    tags: task.tags ?? [],
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflictPending, setConflictPending] = useState<{ closeAfter: boolean } | null>(null);
   const editorRef = useRef<any>(null);
   const contentRef = useRef<string>('');
+  const metadataRef = useRef<TaskMetadata>(metadata);
+  const lastRequestedFileRef = useRef<string | null>(null);
 
-  // Keep contentRef in sync for use in message handler
+  // Keep refs in sync for use in message handler
   contentRef.current = content;
+  metadataRef.current = metadata;
 
-  const isDirty = content !== originalContent;
+  // Check if metadata has changed
+  const isMetadataDirty =
+    metadata.title !== originalMetadata.title ||
+    metadata.stage !== originalMetadata.stage ||
+    metadata.phase !== originalMetadata.phase ||
+    metadata.agent !== originalMetadata.agent ||
+    JSON.stringify(metadata.contexts) !== JSON.stringify(originalMetadata.contexts) ||
+    JSON.stringify(metadata.tags) !== JSON.stringify(originalMetadata.tags);
+
+  const isDirty = content !== originalContent || isMetadataDirty;
 
   // Combined effect: Set up listener FIRST, then send request
   // This prevents the race condition where the response arrives before the listener is ready
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      lastRequestedFileRef.current = null;
+      return;
+    }
 
     console.log('[EditorModal] Setting up message listener for filePath:', filePath);
 
@@ -56,6 +105,19 @@ export const EditorModal: React.FC<EditorModalProps> = ({
           console.log('[EditorModal] Got taskFileContent, content length:', message.content?.length);
           setContent(message.content || '');
           setOriginalContent(message.content || '');
+          // Update metadata from message if provided (e.g., after reload)
+          if (message.metadata) {
+            const newMeta: TaskMetadata = {
+              title: message.metadata.title ?? task.title,
+              stage: message.metadata.stage ?? task.stage,
+              phase: message.metadata.phase ?? '',
+              agent: message.metadata.agent ?? '',
+              contexts: message.metadata.contexts ?? [],
+              tags: message.metadata.tags ?? [],
+            };
+            setMetadata(newMeta);
+            setOriginalMetadata(newMeta);
+          }
           setLoading(false);
           break;
         case 'taskFileError':
@@ -64,6 +126,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
           break;
         case 'taskFileSaved':
           setOriginalContent(contentRef.current);
+          setOriginalMetadata({ ...metadataRef.current });
           setSaving(false);
           // If file was moved to a new location, close the modal to avoid stale path issues
           if (message.moved) {
@@ -89,12 +152,13 @@ export const EditorModal: React.FC<EditorModalProps> = ({
             `${message.message || 'File was modified externally.'}\n\nClick OK to overwrite, or Cancel to reload the file.`
           );
           if (overwrite && vscode) {
-            // Force save
+            // Force save with metadata
             setSaving(true);
             vscode.postMessage({
               command: 'forceSaveTaskFile',
               filePath,
               content: contentRef.current,
+              metadata: metadataRef.current,
               close: conflictPending?.closeAfter ?? false,
             });
           } else if (vscode) {
@@ -114,10 +178,11 @@ export const EditorModal: React.FC<EditorModalProps> = ({
     if (!vscode) {
       setError('VS Code API unavailable. Open this view inside VS Code.');
       setLoading(false);
-    } else if (filePath) {
+    } else if (filePath && lastRequestedFileRef.current !== filePath) {
       setLoading(true);
       setError(null);
       setConflictPending(null);
+      lastRequestedFileRef.current = filePath;
       console.log('[EditorModal] Sending readTaskFile request for:', filePath);
       vscode.postMessage({ command: 'readTaskFile', filePath });
     }
@@ -147,9 +212,23 @@ export const EditorModal: React.FC<EditorModalProps> = ({
       command: 'saveTaskFile',
       filePath,
       content,
+      metadata,
       close: closeAfter,
     });
-  }, [vscode, filePath, content, isDirty]);
+  }, [vscode, filePath, content, metadata, isDirty]);
+
+  const updateMetadata = useCallback(<K extends keyof TaskMetadata>(key: K, value: TaskMetadata[K]) => {
+    setMetadata(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  const toggleContext = useCallback((ctx: string) => {
+    setMetadata(prev => ({
+      ...prev,
+      contexts: prev.contexts.includes(ctx)
+        ? prev.contexts.filter(c => c !== ctx)
+        : [...prev.contexts, ctx],
+    }));
+  }, []);
 
   const handleClose = useCallback(() => {
     if (isDirty) {
@@ -202,6 +281,24 @@ export const EditorModal: React.FC<EditorModalProps> = ({
             <span className="editor-modal-filename">{fileName}</span>
             {isDirty && <span className="editor-modal-dirty">●</span>}
           </div>
+          <div className="editor-modal-tabs">
+            <button
+              className={`editor-modal-tab ${activeTab === 'metadata' ? 'active' : ''}`}
+              onClick={() => setActiveTab('metadata')}
+              aria-label="Metadata tab"
+            >
+              <Settings2 size={14} />
+              <span>Metadata</span>
+            </button>
+            <button
+              className={`editor-modal-tab ${activeTab === 'content' ? 'active' : ''}`}
+              onClick={() => setActiveTab('content')}
+              aria-label="Content tab"
+            >
+              <FileText size={14} />
+              <span>Content</span>
+            </button>
+          </div>
           <button className="editor-modal-close" onClick={handleClose} aria-label="Close">
             <X size={18} />
           </button>
@@ -215,6 +312,91 @@ export const EditorModal: React.FC<EditorModalProps> = ({
             </div>
           ) : error ? (
             <div className="editor-modal-error">{error}</div>
+          ) : activeTab === 'metadata' ? (
+            <div className="editor-modal-metadata">
+              <label className="modal-label">
+                Title
+                <input
+                  className="modal-input"
+                  value={metadata.title}
+                  onChange={(e) => updateMetadata('title', e.target.value)}
+                  placeholder="Task title"
+                />
+              </label>
+
+              <label className="modal-label">
+                Stage
+                <input
+                  className="modal-input"
+                  value={metadata.stage}
+                  list="vibekan-stage-options"
+                  onChange={(e) => updateMetadata('stage', e.target.value)}
+                  placeholder="Stage"
+                />
+                <datalist id="vibekan-stage-options">
+                  {STAGES.map((s) => (
+                    <option key={s} value={s}>{STAGE_LABELS[s]}</option>
+                  ))}
+                </datalist>
+              </label>
+
+              <label className="modal-label">
+                Phase (optional)
+                <select
+                  className="modal-input"
+                  value={metadata.phase}
+                  onChange={(e) => updateMetadata('phase', e.target.value)}
+                >
+                  <option value="">None</option>
+                  {contextData.phases.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="modal-label">
+                Agent (optional)
+                <select
+                  className="modal-input"
+                  value={metadata.agent}
+                  onChange={(e) => updateMetadata('agent', e.target.value)}
+                >
+                  <option value="">None</option>
+                  {contextData.agents.map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="modal-label">
+                Contexts (optional)
+                <div className="modal-contexts-list">
+                  {contextData.contexts.map((c) => (
+                    <label key={c} className="modal-context-chip">
+                      <input
+                        type="checkbox"
+                        checked={metadata.contexts.includes(c)}
+                        onChange={() => toggleContext(c)}
+                      />
+                      <span>{c}</span>
+                    </label>
+                  ))}
+                  {contextData.contexts.length === 0 && (
+                    <span className="modal-no-contexts">No contexts available</span>
+                  )}
+                </div>
+              </label>
+
+              <label className="modal-label">
+                Tags (comma separated)
+                <input
+                  className="modal-input"
+                  value={metadata.tags.join(', ')}
+                  onChange={(e) => updateMetadata('tags', e.target.value.split(',').map(t => t.trim()).filter(Boolean))}
+                  placeholder="frontend, react, ui"
+                />
+              </label>
+            </div>
           ) : (
             <Editor
               height="100%"

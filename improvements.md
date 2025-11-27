@@ -99,7 +99,7 @@
 
 ---
 
-### 4. Remove Theme/Motion Controls
+### 4. Remove Theme/Motion Controls (✅ Completed)
 **Goal:** Remove runtime theme and motion controls from the UI to simplify the interface.
 **Rationale:** Users rarely switch themes at runtime; one good default is sufficient. Advanced users can still use VSCode settings.
 **Changes:**
@@ -182,7 +182,7 @@
 
 ---
 
-### 7. Editable Task Templates (Multiple Types)
+### 7. Editable Task Templates (Multiple Types) (Completed and tested)
 **Goal:** Allow users to create and use custom task templates.
 **Rationale:** Different task types (Bug, Feature, Spike) require different structures.
 **Changes:**
@@ -201,7 +201,7 @@
 - **Defaults:** Fallback to hardcoded default if folder is empty.
 
 #### Vitest Tests
-- **File:** `tests/editable_templates.test.ts`
+- **File:** `tests/editable_templates.test.tsx`
 - **Test Cases:**
   1. Detects templates in `.vibekan/_templates/` and populates the dropdown.
   2. Selecting a template renders the appropriate placeholders in the creation modal.
@@ -210,7 +210,7 @@
 
 ---
 
-### 8. Search Bar in Board Topbar
+### 8. Search Bar in Board Topbar (Completed and tested)
 **Goal:** Add a search bar to filter tasks on the board.
 **Rationale:** Essential for managing boards with many tasks.
 **Changes:**

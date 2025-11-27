@@ -127,6 +127,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </div>
       )}
 
+      {task.contexts && task.contexts.length > 0 && (
+        <div className="task-card-contexts">
+          {task.contexts.map((ctx) => (
+            <span key={ctx} className="task-card-context-badge">{ctx}</span>
+          ))}
+        </div>
+      )}
+
       <div className="task-card-footer">
         <CopyDropdown
           taskId={task.id}

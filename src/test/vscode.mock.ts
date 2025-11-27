@@ -45,12 +45,19 @@ const remove = async (uri: { fsPath: string }, opts?: { recursive?: boolean }) =
 
 const readFile = async (uri: { fsPath: string }) => fs.promises.readFile(uri.fsPath);
 
-const workspaceRoot = process.env.VIBEKAN_TEST_ROOT ?? process.cwd();
+const getWorkspaceRoot = () => process.env.VIBEKAN_TEST_ROOT ?? process.cwd();
+let workspaceFoldersValue: Array<{ uri: { fsPath: string } }> | null = null;
 
 export const Uri = { joinPath, file };
 export const workspace = {
   fs: { stat, createDirectory, writeFile, readDirectory, rename, delete: remove, readFile },
-  workspaceFolders: [{ uri: file(workspaceRoot) }],
+  get workspaceFolders() {
+    if (workspaceFoldersValue) return workspaceFoldersValue;
+    return [{ uri: file(getWorkspaceRoot()) }];
+  },
+  set workspaceFolders(value: Array<{ uri: { fsPath: string } }> | null) {
+    workspaceFoldersValue = value;
+  },
   getConfiguration: vi.fn().mockReturnValue({ get: vi.fn(), update: vi.fn() }),
 };
 

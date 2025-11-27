@@ -73,6 +73,10 @@ export const Sidebar: React.FC<SidebarProps> = () => {
     vscode?.postMessage({ command: 'openRoadmap' });
   };
 
+  const handleOpenTemplates = () => {
+    vscode?.postMessage({ command: 'openTemplatesFolder' });
+  };
+
   const handleNewTask = () => {
     if (!workspaceExists) {
       setStatus({ text: 'Generate Vibekan first', isError: true });
@@ -161,6 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = () => {
         onNewPhase={() => promptAndSend('phase')}
         onOpenArchitecture={handleOpenArchitecture}
         onOpenRoadmap={handleOpenRoadmap}
+        onOpenTemplates={handleOpenTemplates}
         disabled={!workspaceExists}
       />
 

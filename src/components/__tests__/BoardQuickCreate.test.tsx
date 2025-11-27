@@ -15,7 +15,7 @@ vi.mock('../../hooks/useTasks', () => ({
 
 vi.mock('../../hooks/useContextData', () => ({
   useContextData: () => ({
-    data: { phases: [], agents: [], contexts: [] },
+    data: { phases: [], agents: [], contexts: [], templates: [] },
     loading: false,
     refresh: vi.fn(),
   }),
@@ -95,6 +95,7 @@ describe('Board Quick Create', () => {
     expect(screen.getByText('New Agent')).toBeInTheDocument();
     expect(screen.getByText('New Phase')).toBeInTheDocument();
     expect(screen.getByText('Architecture')).toBeInTheDocument();
+    expect(screen.getByText('📝 Templates')).toBeInTheDocument();
   });
 
   it('opens task modal when New Task is clicked', () => {

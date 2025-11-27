@@ -27,9 +27,9 @@ A dedicated **Vibekan** view container is available in the VS Code Activity Bar.
 1.  **Generate Vibekan** (`vibekan.generate`): Scaffolds the `.vibekan` workspace folder and default context files if they don't exist.
 2.  **Open Vibekan View** (`vibekan.openBoard`): Opens the main Kanban board webview with full drag-and-drop functionality.
 3.  **Settings** (`vibekan.openSettings`): Opens the VS Code settings filtered to `vibekan` configuration.
-4.  **Quick Create Navbar (Phase C)**: Inline glass toolbar for creating tasks, phases, agents, contexts, and jumping to `architecture.md`; available in the sidebar and board topbar.
+4.  **Quick Create Navbar (Phase C)**: Inline glass toolbar for creating tasks, phases, agents, contexts, opening the templates folder, and jumping to `architecture.md`; available in the sidebar and board topbar.
 5.  **Task Tree (Phase C)**: Phase → Stage → Task hierarchy with move/duplicate/delete actions and “open file” shortcuts.
-6.  **Task Modal (Phase C)**: Glassmorphic modal for creating tasks with stage, phase, agent, context, tags, and content; remembers last selections.
+6.  **Task Modal (Phase C)**: Glassmorphic modal for creating tasks with stage, phase, agent, context, tags, and content; includes a template dropdown + live preview and remembers last selections.
 
 ### Kanban Board (Phase B ✅ Completed)
 A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
@@ -50,6 +50,9 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 - **Stage-Prefixed Filenames**: Tasks persist as `[stage]-slug.md` and rename automatically when stages change; legacy `task-*` files continue to load.
 - **Smart Sorting**: Tasks sorted by order (undefined orders sort to end)
 - **Timestamp Preservation**: File timestamps maintained when creating frontmatter
+- **Search & Filtering (Phase C)**:
+  - Real-time filtering by title, tags, phase, and agent
+  - Keyboard shortcut: `/` or `Ctrl/Cmd+F` to focus search
 
 **Note**: Task creation is available via the sidebar and board topbar quick-create/task modal; manual `.md` creation is still supported for power users.
 
@@ -69,6 +72,11 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 - **Stage change handling:** Automatically moves file to correct stage folder if frontmatter stage is changed.
 - **Security:** Path validation prevents directory traversal attacks; cross-platform compatible (Windows/Linux/macOS).
 - **Local Monaco:** Monaco Editor bundled locally to comply with VSCode webview CSP (no CDN dependencies).
+
+### Task Templates (Phase C)
+- **Template Source:** Markdown files in `.vibekan/_templates/` (Bug/Feature/Spike, etc.) with placeholders for `{{title}}`, `{{stage}}`, `{{phase}}`, `{{agent}}`, `{{contexts}}`, `{{tags}}`, and `{{content}}`.
+- **Modal Support:** Template dropdown + live rendered preview; falls back to a built-in default template if the folder is missing/empty.
+- **Quick Access:** "📝 Templates" shortcut in both Quick Create toolbars opens the templates folder in the OS file explorer.
 
 ### Visual Themes & Motion (Phase F — In Progress)
 - **Two presets:** `dark-glass` (default) and `low-glow` (higher contrast, lower glow).
@@ -91,6 +99,7 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 │   │   ├── phases/             # Phase definitions
 │   │   ├── stages/             # Stage definitions
 │   │   └── architecture.md     # High-level project architecture summary
+│   ├── _templates/             # Task templates with placeholders
 │   └── tasks/                  # Kanban columns/stages
 │       ├── audit/
 │       ├── idea/

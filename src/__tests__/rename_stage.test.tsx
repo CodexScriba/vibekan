@@ -32,7 +32,7 @@ describe('Rename Chat -> Idea', () => {
         open
         onClose={() => {}}
         onSubmit={() => {}}
-        contextData={{ phases: [], agents: [], contexts: [] }}
+        contextData={{ phases: [], agents: [], contexts: [], templates: [] }}
       />
     );
 

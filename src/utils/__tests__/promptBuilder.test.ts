@@ -13,7 +13,7 @@ describe('PromptBuilder', () => {
     created: '2023-01-01T00:00:00Z',
     updated: '2023-01-02T00:00:00Z',
     order: 1,
-    context: 'custom-context',
+    contexts: ['custom-context'],
     filePath: '/path/to/task.md',
   };
 
@@ -30,7 +30,7 @@ describe('PromptBuilder', () => {
       stageContext: 'Stage Context Content',
       phaseContext: 'Phase Context Content',
       agentContext: 'Agent Context Content',
-      customContext: 'Custom Context Content',
+      customContexts: { 'custom-context': 'Custom Context Content' },
       architecture: 'Architecture Content',
       userNotes: 'User Notes Content',
     });

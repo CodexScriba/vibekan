@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { STAGES, STAGE_LABELS, Stage } from '../types/task';
 import { ContextData } from '../hooks/useContextData';
+import { DEFAULT_TEMPLATE_NAME, DEFAULT_TASK_TEMPLATE, renderTemplate, withDefaultTemplate } from '../utils/templates';
 
 export interface TaskModalPayload {
   title: string;
   stage: Stage;
   phase?: string;
   agent?: string;
-  context?: string;
+  contexts?: string[];
   tags?: string[];
   content?: string;
+  templateName?: string;
 }
 
 interface TaskModalProps {
@@ -24,7 +26,7 @@ const LAST_KEY = 'vibekan.lastSelections';
 interface LastSelections {
   phase?: string;
   agent?: string;
-  context?: string;
+  contexts?: string[];
 }
 
 export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSubmit, contextData }) => {
@@ -32,10 +34,17 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSubmit, c
   const [stage, setStage] = useState<Stage>('idea');
   const [phase, setPhase] = useState('');
   const [agent, setAgent] = useState('');
-  const [context, setContext] = useState('');
+  const [contexts, setContexts] = useState<string[]>([]);
   const [tags, setTags] = useState('');
   const [content, setContent] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState<string>(DEFAULT_TEMPLATE_NAME);
   const [error, setError] = useState('');
+
+  const templateOptions = withDefaultTemplate(contextData.templates ?? []);
+  const currentTemplate =
+    templateOptions.find((tpl) => tpl.name === selectedTemplate) ??
+    templateOptions[0] ??
+    { name: DEFAULT_TEMPLATE_NAME, content: DEFAULT_TASK_TEMPLATE };
 
   useEffect(() => {
     const stored = window.localStorage.getItem(LAST_KEY);
@@ -44,7 +53,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSubmit, c
         const parsed = JSON.parse(stored) as LastSelections;
         setPhase(parsed.phase ?? '');
         setAgent(parsed.agent ?? '');
-        setContext(parsed.context ?? '');
+        setContexts(parsed.contexts ?? []);
       } catch {
         // ignore
       }
@@ -65,9 +74,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSubmit, c
     setStage('idea');
     setPhase(defaults.phase ?? '');
     setAgent(defaults.agent ?? '');
-    setContext(defaults.context ?? '');
+    setContexts(defaults.contexts ?? []);
     setTags('');
     setContent('');
+    setSelectedTemplate(templateOptions[0]?.name ?? DEFAULT_TEMPLATE_NAME);
+  };
+
+  const toggleContext = (ctx: string) => {
+    setContexts((prev) =>
+      prev.includes(ctx) ? prev.filter((c) => c !== ctx) : [...prev, ctx]
+    );
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -85,22 +101,25 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSubmit, c
       return;
     }
 
+    const parsedTags = tags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
     const payload: TaskModalPayload = {
       title: titleValue,
       stage,
       phase: phase || undefined,
       agent: agent || undefined,
-      context: context || undefined,
-      tags: tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean),
+      contexts: contexts.length > 0 ? contexts : undefined,
+      tags: parsedTags,
       content,
+      templateName: selectedTemplate,
     };
 
     window.localStorage.setItem(
       LAST_KEY,
-      JSON.stringify({ phase: payload.phase, agent: payload.agent, context: payload.context })
+      JSON.stringify({ phase: payload.phase, agent: payload.agent, contexts: payload.contexts })
     );
 
     onSubmit(payload);
@@ -127,6 +146,25 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSubmit, c
     }
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
+
+  useEffect(() => {
+    if (!templateOptions.find((tpl) => tpl.name === selectedTemplate)) {
+      setSelectedTemplate(templateOptions[0]?.name ?? DEFAULT_TEMPLATE_NAME);
+    }
+  }, [templateOptions, selectedTemplate]);
+
+  const renderedTemplate = renderTemplate(currentTemplate.content, {
+    title: title || 'New Task',
+    stage,
+    phase: phase || '',
+    agent: agent || '',
+    contexts,
+    tags: tags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean),
+    content,
+  });
 
   if (!open) return null;
 
@@ -167,6 +205,21 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSubmit, c
           </label>
 
           <label className="modal-label">
+            Template
+            <select
+              className="modal-input"
+              value={selectedTemplate}
+              onChange={(e) => setSelectedTemplate(e.target.value)}
+            >
+              {templateOptions.map((tpl) => (
+                <option key={tpl.name} value={tpl.name}>
+                  {tpl.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="modal-label">
             Phase (optional)
             <select className="modal-input" value={phase} onChange={(e) => setPhase(e.target.value)}>
               <option value="">None</option>
@@ -191,15 +244,22 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSubmit, c
           </label>
 
           <label className="modal-label">
-            Context (optional)
-            <select className="modal-input" value={context} onChange={(e) => setContext(e.target.value)}>
-              <option value="">None</option>
+            Contexts (optional)
+            <div className="modal-contexts-list">
               {contextData.contexts.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
+                <label key={c} className="modal-context-chip">
+                  <input
+                    type="checkbox"
+                    checked={contexts.includes(c)}
+                    onChange={() => toggleContext(c)}
+                  />
+                  <span>{c}</span>
+                </label>
               ))}
-            </select>
+              {contextData.contexts.length === 0 && (
+                <span className="modal-no-contexts">No contexts available</span>
+              )}
+            </div>
           </label>
 
           <label className="modal-label">
@@ -219,6 +279,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSubmit, c
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Add task details, notes, or checklist"
+            />
+          </label>
+
+          <label className="modal-label">
+            Template Preview
+            <textarea
+              className="modal-textarea"
+              value={renderedTemplate}
+              readOnly
+              data-testid="template-preview"
             />
           </label>
 

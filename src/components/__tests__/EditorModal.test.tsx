@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup, act, fireEvent } from '@testing-library/react';
 import { EditorModal } from '../EditorModal';
+import { Task } from '../../types/task';
 
 // Mock Monaco editor with a simple textarea so we don't load the real editor in tests
 vi.mock('monaco-editor', () => ({}));
@@ -27,6 +28,15 @@ vi.mock('../../utils/vscode', () => ({
 
 describe('EditorModal', () => {
   const filePath = '/workspace/.vibekan/tasks/plan/test.md';
+  const task: Task = {
+    id: 'test-id',
+    title: 'Test Task',
+    stage: 'plan',
+    created: new Date().toISOString(),
+    updated: new Date().toISOString(),
+    filePath,
+  };
+  const contextData = { phases: [], agents: [], contexts: [], templates: [] };
 
   beforeEach(() => {
     postMessage.mockClear();
@@ -42,6 +52,8 @@ describe('EditorModal', () => {
         open
         filePath={filePath}
         fileName="Test Task"
+        task={task}
+        contextData={contextData}
         onClose={() => {}}
       />
     );
@@ -72,6 +84,8 @@ describe('EditorModal', () => {
     await waitFor(() =>
       expect(screen.queryByText('Loading file...')).not.toBeInTheDocument()
     );
+    const contentTab = screen.getByRole('button', { name: /content tab/i });
+    fireEvent.click(contentTab);
     expect(screen.getByTestId('editor')).toHaveValue('# Hello world');
   });
 });

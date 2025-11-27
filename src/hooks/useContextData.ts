@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { getVsCodeApi } from '../utils/vscode';
+import { TaskTemplate } from '../types/template';
 
 export interface ContextData {
   phases: string[];
   agents: string[];
   contexts: string[];
+  templates: TaskTemplate[];
 }
 
 interface UseContextDataReturn {
@@ -13,7 +15,7 @@ interface UseContextDataReturn {
   refresh: () => void;
 }
 
-const EMPTY: ContextData = { phases: [], agents: [], contexts: [] };
+const EMPTY: ContextData = { phases: [], agents: [], contexts: [], templates: [] };
 
 export const useContextData = (): UseContextDataReturn => {
   const vscode = getVsCodeApi();

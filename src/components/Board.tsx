@@ -13,7 +13,7 @@ import {
   CollisionDetection,
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
-import { Copy } from 'lucide-react';
+import { Copy, Search } from 'lucide-react';
 import { Task, Stage, STAGES } from '../types/task';
 import { CopyMode, CopySettings, CopyErrorMessage, CopySettingsMessage, CopySuccessMessage } from '../types/copy';
 import { Column } from './Column';
@@ -111,6 +111,8 @@ export const Board: React.FC = () => {
     open: false,
   });
   const [workspaceExists, setWorkspaceExists] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const originalStageRef = useRef<Stage | null>(null);
   const lastOverIdRef = useRef<string | null>(null);
   const vscode = getVsCodeApi();
@@ -129,6 +131,10 @@ export const Board: React.FC = () => {
 
   const handleOpenRoadmap = useCallback(() => {
     vscode?.postMessage({ command: 'openRoadmap' });
+  }, [vscode]);
+
+  const handleOpenTemplates = useCallback(() => {
+    vscode?.postMessage({ command: 'openTemplatesFolder' });
   }, [vscode]);
 
   const handleNewTask = useCallback(() => {
@@ -273,9 +279,23 @@ export const Board: React.FC = () => {
 
   const getTasksByStage = useCallback(
     (stage: Stage): Task[] => {
-      return tasks.filter((t) => t.stage === stage);
+      let filtered = tasks.filter((t) => t.stage === stage);
+      
+      if (searchQuery.trim()) {
+        const query = searchQuery.trim().toLowerCase();
+        filtered = filtered.filter(task => {
+          const titleMatch = task.title.toLowerCase().includes(query);
+          const tagMatch = task.tags?.some(tag => tag.toLowerCase().includes(query));
+          const phaseMatch = task.phase?.toLowerCase().includes(query);
+          const agentMatch = task.agent?.toLowerCase().includes(query);
+          const contentMatch = task.userContent?.toLowerCase().includes(query);
+          return titleMatch || tagMatch || phaseMatch || agentMatch || contentMatch;
+        });
+      }
+      
+      return filtered;
     },
-    [tasks]
+    [tasks, searchQuery]
   );
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -412,6 +432,11 @@ export const Board: React.FC = () => {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Ignore if typing in an input or textarea
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
+        return;
+      }
+
       if (!selectedTaskId) return;
 
       const currentTask = tasks.find((t) => t.id === selectedTaskId);
@@ -487,6 +512,21 @@ export const Board: React.FC = () => {
     [selectedTaskId, tasks, getTasksByStage, vscode, copySettings.defaultMode, openCopyMenuFor]
   );
 
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === '/' || (e.key === 'f' && (e.metaKey || e.ctrlKey))) && !e.repeat) {
+        // Prevent default only if we're not already in an input
+        if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          searchInputRef.current?.focus();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
   if (loading) {
     return (
       <div className="board-loading">
@@ -508,6 +548,17 @@ export const Board: React.FC = () => {
     <div className="board-container" onKeyDown={handleKeyDown} tabIndex={0}>
       <div className="board-topbar">
         <div className="board-topbar-title">Vibekan Board</div>
+        <div className="board-search">
+          <Search size={14} className="board-search-icon" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            className="board-search-input"
+            placeholder="Search tasks... (/)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
         <QuickCreateBar
           onNewTask={handleNewTask}
           onNewContext={() => promptAndSend('context')}
@@ -515,6 +566,7 @@ export const Board: React.FC = () => {
           onNewPhase={() => promptAndSend('phase')}
           onOpenArchitecture={handleOpenArchitecture}
           onOpenRoadmap={handleOpenRoadmap}
+          onOpenTemplates={handleOpenTemplates}
           disabled={!workspaceExists}
           showLabels={true}
         />
@@ -559,6 +611,8 @@ export const Board: React.FC = () => {
             open={!!editorTask}
             filePath={editorTask.filePath}
             fileName={editorTask.title}
+            task={editorTask}
+            contextData={contextData}
             onClose={handleCloseEditor}
           />
         )}

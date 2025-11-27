@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, FilePlus2, Bot, Boxes, Ruler, Map } from 'lucide-react';
+import { Plus, FilePlus2, Bot, Boxes, Ruler, Map, FolderOpen } from 'lucide-react';
 
 interface QuickCreateBarProps {
   onNewTask: () => void;
@@ -8,6 +8,7 @@ interface QuickCreateBarProps {
   onNewPhase: () => void;
   onOpenArchitecture: () => void;
   onOpenRoadmap: () => void;
+  onOpenTemplates: () => void;
   disabled?: boolean;
   showLabels?: boolean;
 }
@@ -19,6 +20,7 @@ export const QuickCreateBar: React.FC<QuickCreateBarProps> = ({
   onNewPhase,
   onOpenArchitecture,
   onOpenRoadmap,
+  onOpenTemplates,
   disabled,
   showLabels = false,
 }) => {
@@ -29,6 +31,7 @@ export const QuickCreateBar: React.FC<QuickCreateBarProps> = ({
     { label: 'New Phase', icon: <Boxes size={16} />, action: onNewPhase },
     { label: 'Architecture', icon: <Ruler size={16} />, action: onOpenArchitecture },
     { label: 'Roadmap', icon: <Map size={16} />, action: onOpenRoadmap },
+    { label: '📝 Templates', icon: <FolderOpen size={16} />, action: onOpenTemplates },
   ];
 
   return (

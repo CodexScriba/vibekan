@@ -6,7 +6,7 @@ interface FullContextPayload {
   stageContext?: string;
   phaseContext?: string | null;
   agentContext?: string | null;
-  customContext?: string | null;
+  customContexts?: Record<string, string>;
   architecture?: string | null;
   userNotes?: string;
 }
@@ -61,15 +61,18 @@ export class PromptBuilder {
       );
     }
 
-    if (payload.customContext && payload.task.context) {
-      sections.push(
-        this.blockWithName(
-          'custom_context',
-          payload.task.context,
-          payload.customContext,
-          1
-        )
-      );
+    // Emit a custom_context block for each attached context
+    if (payload.customContexts && Object.keys(payload.customContexts).length > 0) {
+      for (const [name, content] of Object.entries(payload.customContexts)) {
+        sections.push(
+          this.blockWithName(
+            'custom_context',
+            name,
+            content,
+            1
+          )
+        );
+      }
     }
 
     if (this.settings.includeArchitecture && payload.architecture) {
