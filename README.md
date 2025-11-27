@@ -69,6 +69,17 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 - **Security:** Path validation prevents directory traversal attacks; cross-platform compatible (Windows/Linux/macOS).
 - **Local Monaco:** Monaco Editor bundled locally to comply with VSCode webview CSP (no CDN dependencies).
 
+### Visual Themes & Motion (Phase F — In Progress)
+- **Two presets:** `dark-glass` (default) and `low-glow` (higher contrast, lower glow).
+- **Reduced motion:** Respects system `prefers-reduced-motion` and `vibekan.reducedMotion`; disables ambient edge animation, tones down blurs/shadows, removes spinners.
+- **Topbar controls:** Board topbar toggle for theme preset + reduced motion (synced to VS Code settings).
+- **Unified tokens:** Shared color/blur/shadow/motion tokens across board, sidebar, modals, toasts, and tree.
+
+### Configuration (VS Code Settings)
+- `vibekan.copyMode.*` — copy defaults, architecture inclusion, XML formatting, toast visibility/duration.
+- `vibekan.theme` — `dark-glass` | `low-glow` (webview + settings stay in sync).
+- `vibekan.reducedMotion` — boolean; overrides system motion preference for Vibekan UI.
+
 ## Project File Tree
 
 ```text
@@ -103,21 +114,29 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 │   │   ├── CopyDropdown.tsx    # Copy mode picker on task cards
 │   │   ├── EditorModal.tsx     # Monaco Editor popup for inline task editing
 │   │   ├── Toast.tsx           # In-webview toast notification
-│   │   └── Sidebar.tsx         # Sidebar view component
+│   │   ├── Sidebar.tsx         # Sidebar view component (launcher, quick-create, tree)
+│   │   ├── QuickCreateBar.tsx  # Quick create toolbar (tasks/phase/agent/context/architecture)
+│   │   ├── TaskModal.tsx       # Task creation modal
+│   │   ├── TaskTree.tsx        # Phase → Stage → Task hierarchy
+│   │   └── ThemeControls.tsx   # Board topbar theme + reduced-motion toggle
 │   ├── hooks/                  # React hooks
 │   │   └── useTasks.ts         # Task loading and state management hook
 │   ├── types/                  # TypeScript type definitions
 │   │   ├── copy.ts             # Copy mode types and messages
 │   │   ├── global.d.ts         # Global window types
-│   │   └── task.ts             # Task interface and stage constants
+│   │   ├── task.ts             # Task interface and stage constants
+│   │   └── theme.ts            # Theme settings types/messages
 │   ├── utils/                  # Utility functions
 │   │   ├── promptBuilder.ts    # XML prompt assembly
 │   │   └── vscode.ts           # VS Code API singleton
 │   ├── App.tsx                 # Main React application component
 │   ├── extension.ts            # VSCode extension entry point (task file ops, message handlers)
-│   ├── index.css               # Global styles and Glassmorphism tokens
+│   ├── index.css               # Global styles and glass tokens (consumes theme variables)
 │   ├── index.html              # Webview entry HTML
-│   └── main.tsx                # React entry point
+│   ├── main.tsx                # React entry point
+│   └── theme/                  # Theme system
+│       ├── ThemeProvider.tsx   # Theme context + VS Code sync
+│       └── tokens.ts           # Theme token definitions (dark-glass, low-glow)
 ├── package.json                # Project manifest and dependencies
 ├── roadmap.md                  # Current Roadmap (Source of Truth)
 ├── tsconfig.json               # TypeScript configuration

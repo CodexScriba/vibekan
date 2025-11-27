@@ -1277,6 +1277,16 @@ case 'saveTaskFile':
 
 **Dependencies/Notes:** Reuse existing CSS variables where possible; avoid breaking current completed phases. Schedule a short human review after steps 2 and 4 to lock motion/contrast before final polish.
 
+#### F.5 Implementation Status (In Progress)
+
+- [x] Token + theme system created (`dark-glass`, `low-glow`) with `src/theme/tokens.ts`; runtime provider and hook (`ThemeProvider`, `useTheme`) wrap the app.
+- [x] Board topbar UI toggle adds theme preset switch + reduced-motion control; ambient edge line disabled when reduced motion is on.
+- [x] VSCode settings plumbed: `vibekan.theme`, `vibekan.reducedMotion`; messages sync webview ↔ extension; respects `prefers-reduced-motion`.
+- [x] Core surfaces retokenized: board/sidebar/buttons/cards/tree/modals/toasts now use unified tokens, glass blur variable, focus outline, and reduced-motion fallbacks.
+- [ ] Contrast audit and WCAG validation on all surfaces.
+- [ ] Performance profiling for 100–150 tasks and potential virtualization/windowing.
+- [ ] Final accent/ambient polish and documentation pass.
+
 ---
 
 ## 7. Phase C — Tree View & Quick Add Task (Detailed UI Spec)
