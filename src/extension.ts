@@ -919,8 +919,10 @@ async function handleSaveTaskFile(
       if (metadata.contexts !== undefined) {
         if (metadata.contexts.length > 0) {
           parsedFrontmatter.contexts = metadata.contexts;
+          delete (parsedFrontmatter as any).context;
         } else {
           delete parsedFrontmatter.contexts;
+          delete (parsedFrontmatter as any).context;
         }
       }
       // Update tags (empty array means remove)
@@ -1035,7 +1037,6 @@ async function handleSaveTaskFile(
         fileMtimes.delete(filePath);
         finalFilePath = newFileUri.fsPath;
         fileMoved = true;
-        // Store mtime for the new path
         try {
           const movedStat = await vscode.workspace.fs.stat(newFileUri);
           fileMtimes.set(finalFilePath, movedStat.mtime);
@@ -1043,10 +1044,32 @@ async function handleSaveTaskFile(
           fileMtimes.delete(finalFilePath);
         }
       } catch (moveError) {
-        moveErrorMessage = moveError instanceof Error ? moveError.message : 'Unknown move error';
+        const moveMessage = moveError instanceof Error ? moveError.message : 'Unknown move error';
+        const isCrossDevice = typeof moveMessage === 'string' && moveMessage.includes('EXDEV');
+
+        if (isCrossDevice) {
+          try {
+            // EXDEV occurs across devices; copy + delete as a fallback move
+            await vscode.workspace.fs.copy(uri, newFileUri, { overwrite: false });
+            await vscode.workspace.fs.delete(uri);
+            fileMtimes.delete(filePath);
+            finalFilePath = newFileUri.fsPath;
+            fileMoved = true;
+            try {
+              const movedStat = await vscode.workspace.fs.stat(newFileUri);
+              fileMtimes.set(finalFilePath, movedStat.mtime);
+            } catch {
+              fileMtimes.delete(finalFilePath);
+            }
+          } catch (copyError) {
+            moveErrorMessage = copyError instanceof Error ? copyError.message : moveMessage;
+          }
+        } else {
+          moveErrorMessage = moveMessage;
+        }
 
         // Attempt to revert stage in the saved file to the original stage to avoid inconsistent state
-        if (frontmatterMatch && pathStage) {
+        if (!fileMoved && frontmatterMatch && pathStage) {
           try {
             const revertedFrontmatter: ParsedFrontmatter = parsedFrontmatter ? { ...parsedFrontmatter } : {};
             revertedFrontmatter.stage = pathStage;

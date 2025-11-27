@@ -39,6 +39,21 @@ const rename = async (oldUri: { fsPath: string }, newUri: { fsPath: string }) =>
   await fs.promises.rename(oldUri.fsPath, newUri.fsPath);
 };
 
+const copy = async (oldUri: { fsPath: string }, newUri: { fsPath: string }, opts?: { overwrite?: boolean }) => {
+  await fs.promises.mkdir(path.dirname(newUri.fsPath), { recursive: true });
+  if (!opts?.overwrite) {
+    try {
+      await fs.promises.stat(newUri.fsPath);
+      throw new Error('File exists');
+    } catch (err: any) {
+      if (err?.code !== 'ENOENT') {
+        throw err;
+      }
+    }
+  }
+  await fs.promises.copyFile(oldUri.fsPath, newUri.fsPath);
+};
+
 const remove = async (uri: { fsPath: string }, opts?: { recursive?: boolean }) => {
   await fs.promises.rm(uri.fsPath, { recursive: opts?.recursive ?? false, force: true });
 };
@@ -50,7 +65,7 @@ let workspaceFoldersValue: Array<{ uri: { fsPath: string } }> | null = null;
 
 export const Uri = { joinPath, file };
 export const workspace = {
-  fs: { stat, createDirectory, writeFile, readDirectory, rename, delete: remove, readFile },
+  fs: { stat, createDirectory, writeFile, readDirectory, rename, copy, delete: remove, readFile },
   get workspaceFolders() {
     if (workspaceFoldersValue) return workspaceFoldersValue;
     return [{ uri: file(getWorkspaceRoot()) }];

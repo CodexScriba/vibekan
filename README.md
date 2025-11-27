@@ -65,11 +65,12 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 
 ### Monaco Editor Popup (Phase E ✅ Completed)
 - **In-view editing:** Edit task markdown files directly from the Kanban board using Monaco Editor in a glassmorphic popup modal.
+- **Tabbed editing:** Metadata form (title, stage, phase, agent, contexts, tags) sits alongside the full-height content editor for safer frontmatter edits.
 - **Trigger points:** Edit icon on task card hover, `E` keyboard shortcut when task is focused.
 - **Editor features:** Full Monaco Editor with markdown syntax highlighting, line numbers, word wrap, and dark theme.
 - **Keyboard shortcuts:** `Ctrl/Cmd+S` to save, `Ctrl/Cmd+Shift+S` to save and close, `Escape` to close.
 - **Conflict detection:** Checks file mtime before saving; prompts if file was modified externally.
-- **Stage change handling:** Automatically moves file to correct stage folder if frontmatter stage is changed.
+- **Stage change handling:** Automatically moves file to correct stage folder if frontmatter stage is changed, including EXDEV-safe copy+delete fallback across devices.
 - **Security:** Path validation prevents directory traversal attacks; cross-platform compatible (Windows/Linux/macOS).
 - **Local Monaco:** Monaco Editor bundled locally to comply with VSCode webview CSP (no CDN dependencies).
 
