@@ -40,7 +40,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
 }) => {
   console.log('[EditorModal] Render - open:', open, 'filePath:', filePath);
   const vscode = getVsCodeApi();
-  const [activeTab, setActiveTab] = useState<EditorTab>('metadata');
+  const [activeTab, setActiveTab] = useState<EditorTab>('content');
   const [content, setContent] = useState<string>('');
   const [originalContent, setOriginalContent] = useState<string>('');
   const [metadata, setMetadata] = useState<TaskMetadata>({
@@ -283,20 +283,20 @@ export const EditorModal: React.FC<EditorModalProps> = ({
           </div>
           <div className="editor-modal-tabs">
             <button
-              className={`editor-modal-tab ${activeTab === 'metadata' ? 'active' : ''}`}
-              onClick={() => setActiveTab('metadata')}
-              aria-label="Metadata tab"
-            >
-              <Settings2 size={14} />
-              <span>Metadata</span>
-            </button>
-            <button
               className={`editor-modal-tab ${activeTab === 'content' ? 'active' : ''}`}
               onClick={() => setActiveTab('content')}
               aria-label="Content tab"
             >
               <FileText size={14} />
               <span>Content</span>
+            </button>
+            <button
+              className={`editor-modal-tab ${activeTab === 'metadata' ? 'active' : ''}`}
+              onClick={() => setActiveTab('metadata')}
+              aria-label="Metadata tab"
+            >
+              <Settings2 size={14} />
+              <span>Metadata</span>
             </button>
           </div>
           <button className="editor-modal-close" onClick={handleClose} aria-label="Close">

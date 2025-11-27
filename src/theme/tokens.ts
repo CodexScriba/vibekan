@@ -67,7 +67,7 @@ export const DARK_GLASS: ThemeTokens = {
   },
   accents: {
     primary: '#3BF5FF',
-    secondary: '#FF3BCE',
+    secondary: '#14B8A6',
     quiet: 'rgba(139, 92, 255, 0.5)',
   },
   shadows: {
@@ -83,7 +83,7 @@ export const DARK_GLASS: ThemeTokens = {
     slow: '320ms',
     stagger: '60ms',
   },
-  edgeLine: 'linear-gradient(180deg, rgba(59, 245, 255, 0.65), rgba(255, 59, 206, 0.35))',
+  edgeLine: 'linear-gradient(180deg, rgba(59, 245, 255, 0.65), rgba(20, 184, 166, 0.35))',
 };
 
 export const LOW_GLOW: ThemeTokens = {
@@ -110,7 +110,7 @@ export const LOW_GLOW: ThemeTokens = {
   },
   accents: {
     primary: '#5CE6FF',
-    secondary: '#FF6AD5',
+    secondary: '#2DD4BF',
     quiet: 'rgba(140, 188, 255, 0.65)',
   },
   shadows: {
@@ -126,7 +126,7 @@ export const LOW_GLOW: ThemeTokens = {
     slow: '280ms',
     stagger: '50ms',
   },
-  edgeLine: 'linear-gradient(180deg, rgba(92, 230, 255, 0.5), rgba(140, 188, 255, 0.35))',
+  edgeLine: 'linear-gradient(180deg, rgba(92, 230, 255, 0.5), rgba(45, 212, 191, 0.35))',
 };
 
 export const THEMES: Record<ThemeName, ThemeTokens> = {

@@ -1,5 +1,4 @@
 import React from 'react';
-import { Plus, FilePlus2, Bot, Boxes, Ruler, Map, FolderOpen } from 'lucide-react';
 
 interface QuickCreateBarProps {
   onNewTask: () => void;
@@ -25,13 +24,13 @@ export const QuickCreateBar: React.FC<QuickCreateBarProps> = ({
   showLabels = false,
 }) => {
   const items = [
-    { label: 'New Task', icon: <Plus size={16} />, action: onNewTask },
-    { label: 'New Context', icon: <FilePlus2 size={16} />, action: onNewContext },
-    { label: 'New Agent', icon: <Bot size={16} />, action: onNewAgent },
-    { label: 'New Phase', icon: <Boxes size={16} />, action: onNewPhase },
-    { label: 'Architecture', icon: <Ruler size={16} />, action: onOpenArchitecture },
-    { label: 'Roadmap', icon: <Map size={16} />, action: onOpenRoadmap },
-    { label: '📝 Templates', icon: <FolderOpen size={16} />, action: onOpenTemplates },
+    { label: 'New Task', icon: '➕', action: onNewTask },
+    { label: 'New Context', icon: '📄', action: onNewContext },
+    { label: 'New Agent', icon: '🤖', action: onNewAgent },
+    { label: 'New Phase', icon: '📦', action: onNewPhase },
+    { label: 'Architecture', icon: '📐', action: onOpenArchitecture },
+    { label: 'Roadmap', icon: '🗺️', action: onOpenRoadmap },
+    { label: 'Templates', icon: '📁', action: onOpenTemplates },
   ];
 
   return (
