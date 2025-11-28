@@ -2,11 +2,11 @@
   "name": "vibekan",
   "displayName": "Vibekan",
   "description": "Vibekan VSCode extension with glass‑morphic Kanban UI",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "vibekan",
   "icon": "media/icon.png",
   "engines": {
-    "vscode": "^1.106.0"
+    "vscode": "^1.104.0"
   },
   "main": "./out/extension.js",
   "scripts": {
@@ -154,7 +154,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
-    "@types/vscode": "^1.106.1",
+    "@types/vscode": "^1.104.0",
     "@vitejs/plugin-react": "^5.1.1",
     "concurrently": "^9.2.1",
     "jsdom": "^27.2.0",
