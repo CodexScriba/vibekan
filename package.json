@@ -3,8 +3,10 @@
   "displayName": "Vibekan",
   "description": "Vibekan VSCode extension with glass‑morphic Kanban UI",
   "version": "0.2.0",
+  "publisher": "vibekan",
+  "icon": "media/icon.png",
   "engines": {
-    "vscode": "^1.80.0"
+    "vscode": "^1.106.0"
   },
   "main": "./out/extension.js",
   "scripts": {
