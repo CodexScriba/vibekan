@@ -53,6 +53,21 @@ function normalizeStage(input?: string, fallback: Stage | undefined = 'idea'): S
   return fallback;
 }
 
+function inferStageFromFilePath(filePath: string, fallback?: Stage): Stage | undefined {
+  const normalizedPath = filePath.split(path.sep).join('/');
+  const match = normalizedPath.match(/\.vibekan\/tasks\/([^/]+)/);
+  const candidate = match?.[1] ?? path.basename(path.dirname(filePath));
+  const normalized = normalizeStage(candidate, undefined);
+  if (normalized) {
+    return normalized;
+  }
+  return fallback;
+}
+
+function inferStageFromUri(fileUri: vscode.Uri, fallback?: Stage): Stage | undefined {
+  return inferStageFromFilePath(fileUri.fsPath, fallback);
+}
+
 function slugify(input: string): string {
   return input
     .trim()
@@ -677,6 +692,18 @@ async function loadTasksList(): Promise<Task[] | null> {
     stageSources.push({ stage: target, uri: vscode.Uri.joinPath(tasksUri, legacy) });
   }
 
+  try {
+    const entries = await vscode.workspace.fs.readDirectory(tasksUri);
+    const knownStageNames = new Set([...ALL_STAGES, ...Object.keys(LEGACY_STAGE_ALIASES)]);
+    for (const [dirName, dirType] of entries) {
+      if (dirType === vscode.FileType.Directory && !knownStageNames.has(dirName)) {
+        console.warn('[Vibekan] Skipping unknown stage folder:', dirName);
+      }
+    }
+  } catch {
+    // Ignore scanning errors; handled by stageSources reads below
+  }
+
   for (const { stage, uri: stageUri } of stageSources) {
     try {
       const files = await vscode.workspace.fs.readDirectory(stageUri);
@@ -907,11 +934,16 @@ async function handleSaveTaskFile(
       }
     }
 
-    // Extract current stage from file path using path.sep for cross-platform support
-    // Path pattern: .../.vibekan/tasks/{stage}/filename.md
-    const normalizedPath = filePath.split(path.sep).join('/'); // Normalize to forward slashes for regex
-    const pathMatch = normalizedPath.match(/\.vibekan\/tasks\/([^/]+)\//);
-    const pathStage = normalizeStage(pathMatch?.[1], undefined);
+    // Extract current stage from file path using folder location
+    const pathStage = inferStageFromFilePath(filePath, undefined);
+    if (!pathStage) {
+      webview.postMessage({
+        command: 'taskFileSaveError',
+        filePath,
+        error: 'Could not determine stage from file path.',
+      });
+      return;
+    }
 
     // Parse content to detect stage changes from frontmatter. Fallback to path stage to avoid accidental moves.
     const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
@@ -1527,11 +1559,16 @@ function serializeFrontmatter(data: ParsedFrontmatter): string {
   return lines.join('\n');
 }
 
-async function parseTaskFile(fileUri: vscode.Uri, stage: Stage): Promise<Task | null> {
+async function parseTaskFile(fileUri: vscode.Uri, fallbackStage?: Stage): Promise<Task | null> {
   try {
     const content = await vscode.workspace.fs.readFile(fileUri);
     const text = Buffer.from(content).toString('utf8');
     const fileName = path.basename(fileUri.fsPath, '.md');
+    const pathStage = inferStageFromUri(fileUri, fallbackStage);
+    if (!pathStage) {
+      console.warn('[Vibekan] Unknown stage for file:', fileUri.fsPath);
+      return null;
+    }
     
     // Get file stats for fallback timestamps
     let fileStat: vscode.FileStat | null = null;
@@ -1550,7 +1587,7 @@ async function parseTaskFile(fileUri: vscode.Uri, stage: Stage): Promise<Task | 
       return {
         id: fileName,
         title: fileName.replace(/-/g, ' '),
-        stage,
+        stage: pathStage,
         created: fallbackCreated,
         updated: fallbackUpdated,
         filePath: fileUri.fsPath,
@@ -1558,12 +1595,11 @@ async function parseTaskFile(fileUri: vscode.Uri, stage: Stage): Promise<Task | 
     }
 
     const parsed = parseFrontmatter(frontmatterMatch[1]);
-    const parsedStage = normalizeStage(typeof parsed.stage === 'string' ? parsed.stage : undefined, stage) ?? stage;
     
     const task: Task = {
       id: typeof parsed.id === 'string' ? parsed.id : fileName,
       title: typeof parsed.title === 'string' ? parsed.title : fileName.replace(/-/g, ' '),
-      stage: parsedStage,
+      stage: pathStage,
       created: typeof parsed.created === 'string' ? parsed.created : fallbackCreated,
       updated: typeof parsed.updated === 'string' ? parsed.updated : fallbackUpdated,
       filePath: fileUri.fsPath,

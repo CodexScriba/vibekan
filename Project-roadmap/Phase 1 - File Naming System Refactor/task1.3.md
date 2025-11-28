@@ -35,10 +35,10 @@ if (!STAGES.includes(stage)) {
 ```
 
 ## Success Criteria
-- [ ] Tasks load correctly regardless of filename
-- [ ] Stage determined by folder path only
-- [ ] Legacy `task-*.md` files still supported (backward compatibility)
-- [ ] No stage parsing from filename prefixes
+- [x] Tasks load correctly regardless of filename
+- [x] Stage determined by folder path only
+- [x] Legacy `task-*.md` files still supported (backward compatibility)
+- [x] No stage parsing from filename prefixes
 
 ## Unit Tests
 Create tests to verify:
@@ -58,3 +58,11 @@ Must support:
 - Legacy naming: `task-*.md`
 - Any other filename in correct stage folder
 - Files that were renamed by migration script
+
+### Implementation
+- Stage detection now derives from `.vibekan/tasks/{stage}/` folder paths via a shared helper, removing any reliance on filename prefixes or mismatched frontmatter values. Unknown stage folders are skipped with a warning.
+- Task parsing respects the folder-derived stage even when frontmatter claims a different stage.
+
+### Tests
+- Added `src/test/stage_detection.test.ts` covering folder-based stage detection, arbitrary filenames, and graceful skipping of unknown stage folders.
+- Ran `npm run test:unit -- src/test/stage_detection.test.ts src/test/stable_filenames.test.ts`.
