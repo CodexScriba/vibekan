@@ -30,16 +30,13 @@ const filename = `${Date.now()}-${slug}.md`;
 ```
 
 ## Success Criteria
-- [ ] Tasks created with stable filenames (no stage prefix)
-- [ ] Moving tasks between stages only moves files, doesn't rename them
-- [ ] No more "task moved back to original folder" bugs
-- [ ] All existing functionality preserved
+- [x] Tasks created with stable filenames (no stage prefix)
+- [x] Moving tasks between stages only moves files, doesn't rename them
+- [x] No more "task moved back to original folder" bugs
+- [x] All existing functionality preserved
 
 ## Unit Tests
-Create tests to verify:
-- New tasks are created with stable filenames
-- Task movement doesn't trigger file renaming
-- File operations maintain data integrity
+- Added `src/test/stable_filenames.test.ts` covering stable creation IDs, move-without-rename, save-to-new-stage, duplication IDs, and legacy `task-*` loading.
 
 ## Dependencies
 None - this is the first task in Phase 1

@@ -48,11 +48,11 @@ npm run migrate:filenames -- --backup
 ```
 
 ## Success Criteria
-- [ ] Script successfully renames all existing tasks
-- [ ] No data loss (frontmatter preserved)
-- [ ] Dry-run mode allows preview before execution
-- [ ] Can be run manually by users with existing `.vibekan` folders
-- [ ] Handles edge cases (missing IDs, conflicts, etc.)
+- [x] Script successfully renames all existing tasks
+- [x] No data loss (frontmatter preserved)
+- [x] Dry-run mode allows preview before execution
+- [x] Can be run manually by users with existing `.vibekan` folders
+- [x] Handles edge cases (missing IDs, conflicts, etc.)
 
 ## Unit Tests
 Create tests to verify:
@@ -71,3 +71,12 @@ Create tests to verify:
 - Provide backup option
 - Validate frontmatter integrity after migration
 - Handle file system errors gracefully
+
+### Implementation
+- Added `scripts/migrate-filenames.js` with dry-run, backup, and conflict-safe renaming to stable `timestamp-slug.md` filenames.
+- New npm script: `npm run migrate:filenames` (supports `--dry-run` and `--backup`).
+- Frontmatter IDs are normalized to the new filename and preserved when already stage-agnostic.
+- Backups stored under `.vibekan/backups/migrate-filenames-<timestamp>/...` when enabled.
+
+### Tests
+- Added `src/test/migrate_filenames.test.ts` covering dry-run safety, backups, ID preservation, and collision avoidance.

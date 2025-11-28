@@ -53,7 +53,7 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 - **Open File Shortcut (Phase C)**:
   - Hover icon, double-click, or `Enter` on a task card opens the underlying markdown file in the editor
 - **Order Persistence**: Task positions saved to disk with `order` field in frontmatter
-- **Stage-Prefixed Filenames**: Tasks persist as `[stage]-slug.md` and rename automatically when stages change; legacy `task-*` files continue to load.
+- **Stable Filenames**: Tasks use stage-agnostic `timestamp-slug.md` names; moving stages only relocates files without renaming. Legacy `task-*` files continue to load.
 - **Smart Sorting**: Tasks sorted by order (undefined orders sort to end)
 - **Timestamp Preservation**: File timestamps maintained when creating frontmatter
 - **Search & Filtering (Phase C)**:
@@ -96,10 +96,22 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 - `vibekan.theme` — `dark-glass` | `low-glow` (webview + settings stay in sync).
 - `vibekan.reducedMotion` — boolean; overrides system motion preference for Vibekan UI.
 
+## Roadmap (v0.3.0 plan)
+- **Stable filenames**: Remove stage prefixes; moves only change folders. Includes migration script for existing tasks.
+- **Project field**: Optional project on tasks; Project → Phase → Stage → Task hierarchy in TaskTree and board search.
+- **Project context**: `_context/projects/` files, QuickCreate entry, and inclusion in copy-with-context prompts.
+- **Frontmatter robustness**: Replace custom parser with `gray-matter` to safely handle complex YAML (needed for project field).
+- **Packaging**: Version bump to 0.3.0 with updated docs and release notes.
+
+See `project-roadmap.md` (overview) and `Project-roadmap/` (task breakdown) for phase-by-phase details.
+
 ## Testing
 - `npm test` runs `tsc` then Vitest.
 - Current status: all tests passing.
 - Notes: React `act` warnings surface in `tests/metadata_editor.test.tsx`, but assertions pass; wrap state-updating events in `act` if you want a quiet run.
+
+## Maintenance
+- `npm run migrate:filenames -- --dry-run` previews migrating legacy stage-prefixed task files to stable `timestamp-slug.md` names; add `--backup` to copy originals to `.vibekan/backups` before renaming.
 
 ## Project File Tree
 

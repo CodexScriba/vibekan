@@ -84,19 +84,32 @@ function getBaseSlug(idOrFileName: string): string {
   return trimmed;
 }
 
-async function ensureUniqueTaskId(stage: Stage, baseSlug: string, stageUri: vscode.Uri): Promise<string> {
-  let uniqueId = `${stage}-${baseSlug}`;
+async function ensureUniqueTaskId(baseSlug: string, tasksRoot: vscode.Uri): Promise<string> {
+  const stageDirs = [
+    ...ALL_STAGES,
+    ...Object.keys(LEGACY_STAGE_ALIASES),
+  ].map((s) => vscode.Uri.joinPath(tasksRoot, s));
+
+  const baseId = `${Date.now()}-${baseSlug}`;
+  let uniqueId = baseId;
   let counter = 1;
 
-  while (true) {
-    const candidateUri = vscode.Uri.joinPath(stageUri, `${uniqueId}.md`);
-    try {
-      await vscode.workspace.fs.stat(candidateUri);
-      uniqueId = `${stage}-${baseSlug}-${counter}`;
-      counter += 1;
-    } catch {
-      break;
+  const idExists = async (candidate: string) => {
+    for (const dir of stageDirs) {
+      const candidateUri = vscode.Uri.joinPath(dir, `${candidate}.md`);
+      try {
+        await vscode.workspace.fs.stat(candidateUri);
+        return true;
+      } catch {
+        // not found in this stage
+      }
     }
+    return false;
+  };
+
+  while (await idExists(uniqueId)) {
+    uniqueId = `${baseId}-${counter}`;
+    counter += 1;
   }
 
   return uniqueId;
@@ -462,6 +475,7 @@ export const TEST_API = {
   handleSaveTaskFile,
   loadTasksList,
   loadContextData,
+  handleDuplicateTask,
 };
 
 class VibekanSidebarProvider implements vscode.WebviewViewProvider {
@@ -957,9 +971,17 @@ async function handleSaveTaskFile(
       : pathStage;
 
     let contentToPersist = content;
-    let newIdForMove: string | null = null;
     let targetStageUri: vscode.Uri | null = null;
     const stageChanged = currentStage && pathStage && currentStage !== pathStage;
+    const fileBaseName = path.basename(filePath, '.md');
+    const fallbackId = (parsedFrontmatter?.id as string | undefined) ?? fileBaseName;
+
+    let existingStat: vscode.FileStat | null = null;
+    try {
+      existingStat = await vscode.workspace.fs.stat(uri);
+    } catch {
+      existingStat = null;
+    }
 
     if (stageChanged) {
       const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -968,11 +990,6 @@ async function handleSaveTaskFile(
         const tasksUri = vscode.Uri.joinPath(rootUri, '.vibekan', 'tasks');
         targetStageUri = vscode.Uri.joinPath(tasksUri, currentStage);
         await ensureDirectory(targetStageUri);
-
-        const baseSlugSource =
-          (parsedFrontmatter?.id as string | undefined) ?? path.basename(filePath, '.md');
-        const baseSlug = getBaseSlug(baseSlugSource);
-        newIdForMove = await ensureUniqueTaskId(currentStage, baseSlug, targetStageUri);
 
         // Compute new order at destination to avoid duplicate order collisions
         const destEntries = await vscode.workspace.fs.readDirectory(targetStageUri);
@@ -993,17 +1010,23 @@ async function handleSaveTaskFile(
           }
         }
         const newOrder = maxOrder >= 0 ? maxOrder + 1 : destCount;
+        const createdFallback =
+          typeof parsedFrontmatter?.created === 'string'
+            ? parsedFrontmatter.created
+            : existingStat
+              ? new Date(existingStat.ctime).toISOString()
+              : new Date().toISOString();
 
         const updatedFrontmatter: ParsedFrontmatter = parsedFrontmatter ? { ...parsedFrontmatter } : {};
-        updatedFrontmatter.id = newIdForMove;
+        updatedFrontmatter.id = fallbackId;
         updatedFrontmatter.stage = currentStage;
         updatedFrontmatter.updated = new Date().toISOString();
         updatedFrontmatter.order = String(newOrder);
         if (!updatedFrontmatter.title) {
-          updatedFrontmatter.title = path.basename(filePath, '.md').replace(/-/g, ' ');
+          updatedFrontmatter.title = getBaseSlug(fileBaseName).replace(/-/g, ' ');
         }
         if (!updatedFrontmatter.created) {
-          updatedFrontmatter.created = new Date().toISOString();
+          updatedFrontmatter.created = createdFallback;
         }
 
         const bodyStart = frontmatterMatch ? frontmatterMatch[0].length : 0;
@@ -1016,10 +1039,12 @@ async function handleSaveTaskFile(
         parsedFrontmatter.stage = currentStage ?? pathStage ?? 'idea';
       }
       if (!parsedFrontmatter.id) {
-        parsedFrontmatter.id = path.basename(filePath, '.md');
+        parsedFrontmatter.id = fallbackId;
       }
       if (!parsedFrontmatter.created) {
-        parsedFrontmatter.created = new Date().toISOString();
+        parsedFrontmatter.created = existingStat
+          ? new Date(existingStat.ctime).toISOString()
+          : new Date().toISOString();
       }
       parsedFrontmatter.updated = new Date().toISOString();
       const bodyStart = frontmatterMatch ? frontmatterMatch[0].length : 0;
@@ -1035,6 +1060,7 @@ async function handleSaveTaskFile(
     let finalFilePath = filePath;
     let fileMoved = false;
     let moveErrorMessage: string | null = null;
+    const fileNameWithExtension = path.basename(filePath);
 
     // Update stored mtime after successful save
     try {
@@ -1045,8 +1071,8 @@ async function handleSaveTaskFile(
     }
 
     // If stage changed in frontmatter, move the file
-    if (newIdForMove && targetStageUri && currentStage && pathStage && currentStage !== pathStage) {
-      const newFileUri = vscode.Uri.joinPath(targetStageUri, `${newIdForMove}.md`);
+    if (stageChanged && targetStageUri && currentStage && pathStage && currentStage !== pathStage) {
+      const newFileUri = vscode.Uri.joinPath(targetStageUri, fileNameWithExtension);
 
       try {
         // Attempt move; if target exists, this will throw
@@ -1091,7 +1117,7 @@ async function handleSaveTaskFile(
             const revertedFrontmatter: ParsedFrontmatter = parsedFrontmatter ? { ...parsedFrontmatter } : {};
             revertedFrontmatter.stage = pathStage;
             // Revert ID to match the current filename (since move failed)
-            revertedFrontmatter.id = path.basename(filePath, '.md');
+            revertedFrontmatter.id = fallbackId;
             // Revert order to original value
             if (parsedFrontmatter && parsedFrontmatter.order) {
               revertedFrontmatter.order = parsedFrontmatter.order;
@@ -1336,7 +1362,7 @@ async function createTaskFile(payload: CreateTaskPayload): Promise<Task | null> 
 
   const now = new Date().toISOString();
   const baseSlug = slugify(payload.title);
-  const uniqueId = await ensureUniqueTaskId(stage, baseSlug, stageUri);
+  const uniqueId = await ensureUniqueTaskId(baseSlug, tasksRoot);
 
   const stageFiles = await vscode.workspace.fs.readDirectory(stageUri);
   let maxOrder = -1;
@@ -1586,12 +1612,7 @@ async function handleMoveTask(webview: vscode.Webview, taskId: string, fromStage
   const toStageUri = vscode.Uri.joinPath(tasksUri, toStage);
 
   try {
-    // Ensure destination folder exists
-    try {
-      await vscode.workspace.fs.stat(toStageUri);
-    } catch {
-      await vscode.workspace.fs.createDirectory(toStageUri);
-    }
+    await ensureDirectory(toStageUri);
 
     // Find the task file
     const files = await vscode.workspace.fs.readDirectory(fromStageUri);
@@ -1616,38 +1637,46 @@ async function handleMoveTask(webview: vscode.Webview, taskId: string, fromStage
     }
 
     const sourceUri = vscode.Uri.joinPath(fromStageUri, taskFileName);
+    const targetUri = vscode.Uri.joinPath(toStageUri, taskFileName);
 
-    const baseSlug = sourceTask ? getBaseSlug(sourceTask.id) : getBaseSlug(taskFileName);
-    const newId = await ensureUniqueTaskId(toStage, baseSlug, toStageUri);
-    const targetUri = vscode.Uri.joinPath(toStageUri, `${newId}.md`);
+    // Avoid clobbering an existing task in the destination stage
+    try {
+      await vscode.workspace.fs.stat(targetUri);
+      webview.postMessage({
+        type: 'taskMoved',
+        ok: false,
+        message: 'A task with the same filename already exists in the destination stage.',
+      });
+      return;
+    } catch {
+      // Safe to move
+    }
 
     // Get file stats for timestamp preservation
     let sourceStats: vscode.FileStat | null = null;
     try {
       sourceStats = await vscode.workspace.fs.stat(sourceUri);
     } catch {
-      // Ignore
+      sourceStats = null;
     }
 
     // Read file content
     const content = await vscode.workspace.fs.readFile(sourceUri);
     const text = Buffer.from(content).toString('utf8');
-    
+
     // Calculate new order for the moved task
     const destFiles = await vscode.workspace.fs.readDirectory(toStageUri);
     let newOrder: number;
-    
+
     if (targetOrder !== undefined) {
-      // Use the specified target order and shift existing tasks
       newOrder = targetOrder;
-      
+
       // Increment order of tasks at or after targetOrder
       for (const [destFileName, destFileType] of destFiles) {
         if (destFileType === vscode.FileType.File && destFileName.endsWith('.md')) {
           const destFileUri = vscode.Uri.joinPath(toStageUri, destFileName);
           const destTask = await parseTaskFile(destFileUri, toStage);
           if (destTask && destTask.order !== undefined && destTask.order >= targetOrder) {
-            // Shift this task's order up by 1
             const destContent = await vscode.workspace.fs.readFile(destFileUri);
             const destText = Buffer.from(destContent).toString('utf8');
             const destFmMatch = destText.match(/^---\n([\s\S]*?)\n---/);
@@ -1677,32 +1706,38 @@ async function handleMoveTask(webview: vscode.Webview, taskId: string, fromStage
           }
         }
       }
-      // If no tasks have order defined, use taskCount; otherwise use maxOrder + 1
       newOrder = maxOrder >= 0 ? maxOrder + 1 : taskCount;
     }
-    
+
     const frontmatterMatch = text.match(/^---\n([\s\S]*?)\n---/);
+    const fallbackCreated = sourceStats ? new Date(sourceStats.ctime).toISOString() : new Date().toISOString();
+    const fallbackUpdated = sourceStats ? new Date(sourceStats.mtime).toISOString() : new Date().toISOString();
+    const fileBaseName = taskFileName.replace(/\.md$/, '');
+    const fallbackId = sourceTask?.id ?? fileBaseName;
+    const fallbackTitle = sourceTask?.title ?? getBaseSlug(fileBaseName).replace(/-/g, ' ');
     let newText: string;
-    
+
     if (frontmatterMatch) {
       // Parse existing frontmatter and update stage/updated/order
       const parsed = parseFrontmatter(frontmatterMatch[1]);
-      parsed.id = newId;
+      parsed.id = typeof parsed.id === 'string' ? parsed.id : fallbackId;
       parsed.stage = toStage;
       parsed.updated = new Date().toISOString();
       parsed.order = String(newOrder);
-      
+      if (!parsed.created) {
+        parsed.created = fallbackCreated;
+      }
+      if (!parsed.title) {
+        parsed.title = fallbackTitle;
+      }
+
       const newFrontmatter = serializeFrontmatter(parsed);
       const bodyStart = frontmatterMatch[0].length;
       newText = `---\n${newFrontmatter}\n---${text.slice(bodyStart)}`;
     } else {
       // No frontmatter, create one preserving file timestamps
-      const fallbackCreated = sourceStats ? new Date(sourceStats.ctime).toISOString() : new Date().toISOString();
-      const fallbackUpdated = sourceStats ? new Date(sourceStats.mtime).toISOString() : new Date().toISOString();
-      const fallbackTitle = sourceTask?.title ?? newId.replace(/-/g, ' ');
-      
       const newFrontmatter = serializeFrontmatter({
-        id: newId,
+        id: fallbackId,
         title: fallbackTitle,
         stage: toStage,
         created: fallbackCreated,
@@ -1715,7 +1750,7 @@ async function handleMoveTask(webview: vscode.Webview, taskId: string, fromStage
     await vscode.workspace.fs.writeFile(targetUri, Buffer.from(newText, 'utf8'));
     await vscode.workspace.fs.delete(sourceUri);
 
-    webview.postMessage({ type: 'taskMoved', ok: true, taskId, newTaskId: newId, newFilePath: targetUri.fsPath, toStage });
+    webview.postMessage({ type: 'taskMoved', ok: true, taskId, newFilePath: targetUri.fsPath, toStage });
     await broadcastTasks();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
