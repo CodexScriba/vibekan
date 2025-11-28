@@ -53,7 +53,7 @@ A glassmorphic 6-column board displaying tasks from `.vibekan/tasks/` folders.
 - **Open File Shortcut (Phase C)**:
   - Hover icon, double-click, or `Enter` on a task card opens the underlying markdown file in the editor
 - **Order Persistence**: Task positions saved to disk with `order` field in frontmatter
-- **Stable Filenames**: Tasks use stage-agnostic `timestamp-slug.md` names; moving stages only relocates files without renaming. Legacy `task-*` files continue to load.
+- **Stable Filenames**: Tasks use stage-agnostic `timestamp-slug.md` names; stage comes from `.vibekan/tasks/{stage}/`, so moving a stage only relocates files without renaming. Legacy `task-*` and stage-prefixed files still load.
 - **Smart Sorting**: Tasks sorted by order (undefined orders sort to end)
 - **Timestamp Preservation**: File timestamps maintained when creating frontmatter
 - **Search & Filtering (Phase C)**:
@@ -113,6 +113,20 @@ See `project-roadmap.md` (overview) and `Project-roadmap/` (task breakdown) for 
 ## Maintenance
 - `npm run migrate:filenames -- --dry-run` previews migrating legacy stage-prefixed task files to stable `timestamp-slug.md` names; add `--backup` to copy originals to `.vibekan/backups` before renaming.
 
+## File Naming & Stage Detection
+- Filenames are stage-agnostic: new tasks are `timestamp-slug.md` (unique across all stage folders).
+- Stage comes from the folder path `.vibekan/tasks/{stage}/`; changing a task’s stage only moves the file to a different folder.
+- Backward compatibility: existing `task-*` and stage-prefixed files still load as long as they live in a valid stage folder.
+- Moves use copy+delete fallback for cross-device safety; filenames stay stable when stages change.
+- More detail: see `docs/file-naming.md`.
+
+## Migration (v0.2.x → v0.3.0)
+1. **Dry-run first:** `npm run migrate:filenames -- --dry-run` (shows planned renames).
+2. **Optionally back up:** add `--backup` to copy originals into `.vibekan/backups/`.
+3. **Migrate:** run `npm run migrate:filenames` to rename `[stage]-slug.md` files to the stable `timestamp-slug.md` format.
+4. **Result:** stages are derived from folders only; filenames remain unchanged when you move tasks.
+   - Example: `.vibekan/tasks/plan/plan-capacity-forecast.md -> .vibekan/tasks/plan/1732800123456-capacity-forecast.md`.
+
 ## Project File Tree
 
 ```text
@@ -124,10 +138,13 @@ See `project-roadmap.md` (overview) and `Project-roadmap/` (task breakdown) for 
 │   │   ├── stages/             # Stage definitions
 │   │   └── architecture.md     # High-level project architecture summary
 │   ├── _templates/             # Task templates with placeholders
-│   └── tasks/                  # Kanban columns/stages
+│   └── tasks/                  # Kanban columns/stages; folder determines stage, filenames stay stage-agnostic
 │       ├── audit/
+│       │   └── 1732800000000-fix-audit-bug.md
 │       ├── idea/
+│       │   └── 1732800005000-new-idea.md
 │       ├── code/
+│       │   └── task-legacy-example.md        # legacy filename still loads
 │       ├── completed/
 │       ├── archive/
 │       ├── plan/

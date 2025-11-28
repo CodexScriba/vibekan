@@ -36,11 +36,11 @@ The README currently documents the old stage-prefixed naming behavior. This need
 4. **Technical Details** - Explain folder-based stage detection
 
 ## Success Criteria
-- [ ] README accurately reflects new behavior
-- [ ] Migration guide available for existing users
-- [ ] File tree example shows new naming
-- [ ] No outdated information remains
-- [ ] Users understand the new system
+- [x] README accurately reflects new behavior
+- [x] Migration guide available for existing users
+- [x] File tree example shows new naming
+- [x] No outdated information remains
+- [x] Users understand the new system
 
 ## Unit Tests
 Not applicable for documentation, but verify:
@@ -58,3 +58,7 @@ Consider adding:
 - Before/after examples
 - Troubleshooting section for common issues
 - FAQ about the changes
+
+### Implementation
+- README now describes stage-agnostic `timestamp-slug.md` filenames, folder-based stage detection, and stable moves (no renames). Maintenance and migration guidance expanded with dry-run/backup steps and before/after expectations.
+- Project file tree shows stage folders with stage-agnostic filenames plus a legacy example; added `docs/file-naming.md` with naming rules, migration commands, and behavior notes.
