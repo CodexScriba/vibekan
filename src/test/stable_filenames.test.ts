@@ -75,12 +75,10 @@ describe('Stable filenames and moves', () => {
     const originalPath = task!.filePath;
     const fileName = path.basename(originalPath);
 
-    await handleMoveTask(mockWebview, task!.id, 'queue', 'code');
+    const result = await handleMoveTask(task!.id, 'queue', 'code');
+    expect(result.ok).toBe(true);
 
     const newPath = path.join(vibekanRoot, 'tasks', 'code', fileName);
-    expect(mockWebview.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'taskMoved', ok: true, toStage: 'code' })
-    );
     expect(fs.existsSync(newPath)).toBe(true);
     expect(fs.existsSync(originalPath)).toBe(false);
 
@@ -116,7 +114,7 @@ describe('Stable filenames and moves', () => {
       stage: 'plan',
     });
 
-    await handleDuplicateTask(mockWebview, task!.id);
+    await handleDuplicateTask(task!.id);
     const tasks = await loadTasksList();
     const duplicate = tasks?.find((t) => t.title === `${task!.title} Copy`);
 
@@ -124,9 +122,6 @@ describe('Stable filenames and moves', () => {
     expect(duplicate!.id).not.toBe(task!.id);
     const dupFileName = path.basename(duplicate!.filePath);
     expect(dupFileName.startsWith('plan-')).toBe(false);
-    expect(mockWebview.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'taskCreated', task: expect.objectContaining({ title: `${task!.title} Copy` }) })
-    );
   });
 
   it('still loads legacy task-* files', async () => {

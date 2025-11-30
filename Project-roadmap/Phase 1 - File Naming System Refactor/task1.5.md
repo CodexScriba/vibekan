@@ -25,7 +25,7 @@ The current custom frontmatter parser is fragile and will cause problems when ad
 ### Implementation Steps
 1. **Install gray-matter package**:
    ```bash
-   npm install gray-matter @types/gray-matter
+   npm install gray-matter
    ```
 
 2. **Replace `parseFrontmatter()` function** with gray-matter's `matter()` API
@@ -103,22 +103,22 @@ function updateTaskFile(task: Task, content: string): string {
 - **Safer**: Proper error handling prevents data corruption
 
 ## Success Criteria
-- [ ] `gray-matter` package installed and imported
-- [ ] All custom frontmatter parsing replaced with gray-matter
-- [ ] All custom frontmatter serialization replaced with gray-matter
-- [ ] Existing tasks load without errors
-- [ ] Frontmatter with special characters parses correctly
-- [ ] Tests pass for frontmatter parsing/writing
-- [ ] No data loss when reading/writing existing tasks
-- [ ] Project field can be added to frontmatter without parser changes
+- [x] `gray-matter` package installed and imported
+- [x] All custom frontmatter parsing replaced with gray-matter
+- [x] All custom frontmatter serialization replaced with gray-matter
+- [x] Existing tasks load without errors
+- [x] Frontmatter with special characters parses correctly
+- [x] Tests pass for frontmatter parsing/writing
+- [x] No data loss when reading/writing existing tasks
+- [x] Project field can be added to frontmatter without parser changes
 
 ## Testing Checklist
-- [ ] Create task with special characters in title: `"Task: Alpha/Beta"`
-- [ ] Create task with multi-line content in frontmatter
-- [ ] Load existing tasks with current frontmatter format
-- [ ] Save tasks and verify frontmatter integrity
-- [ ] Move tasks between stages and verify frontmatter preserved
-- [ ] Test edge cases: empty values, arrays, special characters
+- [x] Create task with special characters in title: `"Task: Alpha/Beta"`
+- [x] Create task with multi-line content in frontmatter
+- [x] Load existing tasks with current frontmatter format
+- [x] Save tasks and verify frontmatter integrity
+- [x] Move tasks between stages and verify frontmatter preserved
+- [x] Test edge cases: empty values, arrays, special characters
 
 ## Unit Tests
 Create comprehensive tests for:
@@ -137,3 +137,8 @@ None within Phase 1, but this is CRITICAL for Phase 2+ since the project field w
 - Project names with `:` or `/` will break current parser
 - Future fields (multi-line descriptions, metadata) won't work
 - Data corruption risk when saving complex frontmatter
+
+### Implementation
+- Added `gray-matter` dependency and replaced custom parsing/serialization helpers in `src/extension.ts` with matter-based utilities (`parseFrontmatterDocument`, `stringifyDocument`), ensuring undefined fields are stripped safely.
+- All task file operations (create, save, move, reorder, legacy chat migration, parsing) now read/write frontmatter via gray-matter; stage remains folder-derived and filenames remain stable.
+- Tests added for multi-line/special-character frontmatter and metadata saves (`src/test/frontmatter_gray_matter.test.ts`); stable filename suite revalidated.

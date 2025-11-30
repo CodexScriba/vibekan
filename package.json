@@ -144,6 +144,7 @@
     "@dnd-kit/sortable": "^8.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@monaco-editor/react": "^4.7.0",
+    "gray-matter": "^4.0.3",
     "lucide-react": "^0.554.0",
     "monaco-editor": "^0.55.1",
     "react": "^19.2.0",

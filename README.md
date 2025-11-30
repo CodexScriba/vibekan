@@ -159,6 +159,9 @@ See `project-roadmap.md` (overview) and `Project-roadmap/` (task breakdown) for 
 │   ├── icon.png
 │   └── sidebar.svg             # Sidebar activity bar icon
 ├── src/                        # Extension source code
+│   ├── commands/               # VS Code command handlers
+│   │   ├── index.ts            # Barrel exports
+│   │   └── fileCommands.ts     # openFileInEditor, handleOpenArchitecture/Roadmap/Templates
 │   ├── components/             # React components
 │   │   ├── Board.tsx           # Main Kanban board component
 │   │   ├── Column.tsx          # Stage column component
@@ -170,8 +173,23 @@ See `project-roadmap.md` (overview) and `Project-roadmap/` (task breakdown) for 
 │   │   ├── QuickCreateBar.tsx  # Quick create toolbar (tasks/phase/agent/context/architecture)
 │   │   ├── TaskModal.tsx       # Task creation modal
 │   │   └── TaskTree.tsx        # Phase → Stage → Task hierarchy
+│   ├── core/                   # Core utilities (pure functions)
+│   │   ├── index.ts            # Barrel exports
+│   │   ├── constants.ts        # LEGACY_STAGE_ALIASES
+│   │   ├── stages.ts           # normalizeStage, inferStageFromFilePath, slugify, getBaseSlug
+│   │   └── frontmatter.ts      # gray-matter wrappers (parse/stringify)
 │   ├── hooks/                  # React hooks
 │   │   └── useTasks.ts         # Task loading and state management hook
+│   ├── services/               # Business logic services
+│   │   ├── index.ts            # Barrel exports
+│   │   ├── fileSystem.ts       # readTextIfExists, ensureDirectory, listFilesWithoutExtension
+│   │   ├── taskService.ts      # parseTaskFile, loadTasksList
+│   │   ├── taskMoveService.ts  # ensureUniqueTaskId
+│   │   └── contextService.ts   # loadContextData, loadTemplates, createPhase/Agent/Context
+│   ├── settings/               # VS Code settings management
+│   │   ├── index.ts            # Barrel exports
+│   │   ├── copySettings.ts     # getCopySettings, resolveCopyMode
+│   │   └── themeSettings.ts    # getThemeSettings, updateThemeSettingsConfig
 │   ├── types/                  # TypeScript type definitions
 │   │   ├── copy.ts             # Copy mode types and messages
 │   │   ├── global.d.ts         # Global window types
@@ -180,8 +198,16 @@ See `project-roadmap.md` (overview) and `Project-roadmap/` (task breakdown) for 
 │   ├── utils/                  # Utility functions
 │   │   ├── promptBuilder.ts    # XML prompt assembly
 │   │   └── vscode.ts           # VS Code API singleton
+│   ├── webview/                # Webview content providers
+│   │   ├── index.ts            # Barrel exports
+│   │   └── contentProvider.ts  # getWebviewContent, getNonce, CSP injection
+│   ├── workspace/              # Workspace management
+│   │   ├── index.ts            # Barrel exports
+│   │   ├── scaffolding.ts      # ensureVibekanRoot, scaffoldVibekanWorkspace
+│   │   ├── validation.ts       # validateVibekanPath (security)
+│   │   └── migration.ts        # migrateLegacyStages (chat → idea)
 │   ├── App.tsx                 # Main React application component
-│   ├── extension.ts            # VSCode extension entry point (task file ops, message handlers)
+│   ├── extension.ts            # VSCode extension entry point (activate, webview handlers)
 │   ├── index.css               # Global styles and glass tokens (consumes theme variables)
 │   ├── index.html              # Webview entry HTML
 │   ├── main.tsx                # React entry point
